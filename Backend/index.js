@@ -6,6 +6,7 @@ require('dotenv').config();
 const Event = require('./src/models/Event');
 const authRoutes = require('./src/routes/authRoutes');
 const organizationRoutes = require('./src/routes/organizationRoutes');
+const eventRoutes = require('./src/routes/eventRoutes');
 const checkIdempotency = require('./src/middlewares/idempotency');
 const { startEventDispatcherCron } = require('./src/services/dispatcherService');
 
@@ -16,6 +17,7 @@ app.use(express.json());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/organizations', organizationRoutes);
+app.use('/api/events', eventRoutes);
 
 app.post('/api/events/ingest', checkIdempotency(300), async (req, res) => {
   try {
@@ -55,7 +57,7 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date() });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 2000;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/hookflow';
 
 mongoose
