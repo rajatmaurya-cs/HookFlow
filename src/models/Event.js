@@ -2,13 +2,12 @@ const mongoose = require('mongoose');
 
 const eventSchema = new mongoose.Schema(
   {
-    organization: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Organization',
+    secretKey: {
+      type: String,
       required: true,
     },
     payload: {
-      type: mongoose.Schema.Types.Mixed, // Stores whatever JSON/data incoming request sent
+      type: mongoose.Schema.Types.Mixed,
       required: true,
     },
     status: {
