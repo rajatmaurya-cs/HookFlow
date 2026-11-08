@@ -35,10 +35,10 @@ export default function DashboardPage() {
   const fetchData = async (token) => {
     try {
       const [orgsRes, eventsRes] = await Promise.all([
-        fetch('http://localhost:5000/api/organizations', {
+        fetch('http://localhost:2000/api/organizations', {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch('http://localhost:5000/api/events/my-events', {
+        fetch('http://localhost:2000/api/events/my-events', {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
@@ -68,7 +68,7 @@ export default function DashboardPage() {
 
     try {
       const token = localStorage.getItem('accessToken');
-      const res = await fetch('http://localhost:5000/api/organizations/register', {
+      const res = await fetch('http://localhost:2000/api/organizations/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -232,11 +232,11 @@ export default function DashboardPage() {
                       <input
                         type="text"
                         readOnly
-                        value="http://localhost:5000/api/events/ingest"
+                        value="http://localhost:2000/api/events/ingest"
                         className="w-full font-mono text-xs px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-blue-400"
                       />
                       <button
-                        onClick={() => handleCopy('http://localhost:5000/api/events/ingest', `url-${org._id || org.id}`)}
+                        onClick={() => handleCopy('http://localhost:2000/api/events/ingest', `url-${org._id || org.id}`)}
                         className="text-xs px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 whitespace-nowrap cursor-pointer"
                       >
                         {copiedKey === `url-${org._id || org.id}` ? '✓ Copied' : 'Copy URL'}
