@@ -16,18 +16,13 @@ const registerOrganization = async (req, res) => {
       name,
       user: userId,
       secretKey,
+      secretKeys: [secretKey],
       destinationUrl: destinationUrl || '',
     });
 
     return res.status(201).json({
       message: 'Organization registered successfully',
-      organization: {
-        id: organization._id,
-        name: organization.name,
-        secretKey: organization.secretKey,
-        destinationUrl: organization.destinationUrl,
-        createdAt: organization.createdAt,
-      },
+      organization,
     });
   } catch (error) {
     return res.status(500).json({ error: error.message });
@@ -43,7 +38,31 @@ const getOrganizations = async (req, res) => {
   }
 };
 
+const generateNewSecretKey = async (req, res) => {
+  try {
+    const { orgId } = req.params;
+    const organization = await Organization.findOne({ _id: orgId, user: req.userId });
+
+    if (!organization) {
+      return res.status(404).json({ error: 'Organization not found' });
+    }
+
+    const newSecretKey = `sec_${crypto.randomBytes(24).toString('hex')}`;
+    organization.secretKey = newSecretKey;
+    organization.secretKeys.push(newSecretKey);
+    await organization.save();
+
+    return res.status(200).json({
+      message: 'New secret key generated successfully',
+      organization,
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   registerOrganization,
   getOrganizations,
+  generateNewSecretKey,
 };

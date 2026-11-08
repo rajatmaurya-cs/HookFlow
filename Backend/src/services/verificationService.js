@@ -6,8 +6,11 @@ const verifyEventOrganization = async (event) => {
   }
 
   const organization = await Organization.findOne({
-    secretKey: event.secretKey,
     user: event.user,
+    $or: [
+      { secretKey: event.secretKey },
+      { secretKeys: event.secretKey },
+    ],
   });
 
   if (!organization) {

@@ -16,6 +16,10 @@ const organizationSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+    secretKeys: {
+      type: [String],
+      default: [],
+    },
     destinationUrl: {
       type: String,
       default: '',
