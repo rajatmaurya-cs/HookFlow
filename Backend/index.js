@@ -64,7 +64,7 @@ mongoose
   .connect(MONGODB_URI)
   .then(() => {
     console.log('MongoDB connected successfully');
-    startEventDispatcherCron(5 * 60 * 1000);
+    startEventDispatcherCron(5 * 1000);
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });

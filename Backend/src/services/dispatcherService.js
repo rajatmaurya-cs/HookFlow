@@ -11,7 +11,7 @@ const dispatchSingleEvent = async (event) => {
     event.status = 'failed';
     event.reason = verification.reason;
     event.attempts += 1;
-    event.nextRetryAt = new Date(Date.now() + 5 * 60 * 1000);
+    event.nextRetryAt = new Date(Date.now() + 5 * 1000);
     await event.save();
     return;
   }
@@ -40,7 +40,7 @@ const dispatchSingleEvent = async (event) => {
     event.status = 'failed';
     event.reason = error.message;
     event.attempts += 1;
-    event.nextRetryAt = new Date(Date.now() + 5 * 60 * 1000);
+    event.nextRetryAt = new Date(Date.now() + 5 * 1000);
     await event.save();
   }
 };
