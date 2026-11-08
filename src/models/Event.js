@@ -28,6 +28,15 @@ const eventSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    nextRetryAt: {
+      type: Date,
+      default: Date.now,
+    },
+    idempotencyKey: {
+      type: String,
+      default: null,
+      index: true,
+    },
   },
   {
     timestamps: true,
