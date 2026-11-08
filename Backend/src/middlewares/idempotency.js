@@ -4,9 +4,9 @@ const redis = require('../config/redis');
 const checkIdempotency = (ttlSeconds = 300) => {
   return async (req, res, next) => {
     try {
-      const secretKey = req.headers['x-secret-key'] || req.body?.secretKey;
+      const secretKey = req.headers['secret-x-key'] || req.headers['x-secret-key'] || req.body?.secretKey;
       if (!secretKey) {
-        return res.status(400).json({ error: 'Secret key is required' });
+        return res.status(400).json({ error: 'secret-x-key is required' });
       }
 
       const providedKey = req.headers['idempotency-key'] || req.headers['x-idempotency-key'] || req.body?.idempotencyKey;
