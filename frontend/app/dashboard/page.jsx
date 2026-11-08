@@ -14,7 +14,7 @@ export default function DashboardPage() {
   const [creatingOrg, setCreatingOrg] = useState(false);
   const [orgError, setOrgError] = useState('');
   const [copiedKey, setCopiedKey] = useState('');
-  const [visibleSecrets, setVisibleSecrets] = useState({});
+  const [showSecret, setShowSecret] = useState({});
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -91,30 +91,8 @@ export default function DashboardPage() {
     }
   };
 
-  const handleGenerateNewSecret = async (orgId) => {
-    try {
-      const token = localStorage.getItem('accessToken');
-      const res = await fetch(`http://localhost:2000/api/organizations/${orgId}/new-secret`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || 'Failed to generate key');
-        return;
-      }
-
-      setOrganizations(
-        organizations.map((org) => (org._id === orgId ? data.organization : org))
-      );
-    } catch (err) {
-      alert('Error generating new secret');
-    }
-  };
-
-  const toggleShowSecrets = (orgId) => {
-    setVisibleSecrets((prev) => ({
+  const toggleSecret = (orgId) => {
+    setShowSecret((prev) => ({
       ...prev,
       [orgId]: !prev[orgId],
     }));
@@ -214,7 +192,7 @@ export default function DashboardPage() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-bold text-white">Your Organizations & Keys</h2>
+          <h2 className="text-xl font-bold text-white">Your Organizations</h2>
 
           {organizations.length === 0 ? (
             <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-8 text-center text-slate-500 text-sm">
@@ -224,56 +202,43 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {organizations.map((org) => {
                 const orgId = org._id || org.id;
-                const allKeys = org.secretKeys && org.secretKeys.length > 0 ? org.secretKeys : [org.secretKey];
-                const isRevealed = visibleSecrets[orgId];
+                const isVisible = showSecret[orgId];
 
                 return (
                   <div key={orgId} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold text-lg text-white">{org.name}</h3>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleGenerateNewSecret(orgId)}
-                          className="text-xs bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 px-2.5 py-1 rounded-lg transition cursor-pointer"
-                        >
-                          + New Key
-                        </button>
-                        <span className="text-xs bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-mono">
-                          Active
-                        </span>
-                      </div>
+                      <span className="text-xs bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-mono">
+                        Active
+                      </span>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                       <div className="flex items-center justify-between">
                         <label className="text-xs font-medium text-slate-400">
-                          Active Secret Keys ({allKeys.length})
+                          Secret Key (Header: secret-x-key)
                         </label>
                         <button
-                          onClick={() => toggleShowSecrets(orgId)}
+                          onClick={() => toggleSecret(orgId)}
                           className="text-xs text-blue-400 hover:text-blue-300 cursor-pointer underline"
                         >
-                          {isRevealed ? 'Hide All Keys' : 'View All Keys'}
+                          {isVisible ? 'Hide Secret' : 'Show Secret'}
                         </button>
                       </div>
 
-                      <div className="space-y-2">
-                        {allKeys.map((keyStr, idx) => (
-                          <div key={idx} className="flex items-center gap-2">
-                            <input
-                              type={isRevealed ? 'text' : 'password'}
-                              readOnly
-                              value={keyStr}
-                              className="w-full font-mono text-xs px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-300"
-                            />
-                            <button
-                              onClick={() => handleCopy(keyStr, `${orgId}-${idx}`)}
-                              className="text-xs px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 whitespace-nowrap cursor-pointer"
-                            >
-                              {copiedKey === `${orgId}-${idx}` ? '✓ Copied' : 'Copy'}
-                            </button>
-                          </div>
-                        ))}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type={isVisible ? 'text' : 'password'}
+                          readOnly
+                          value={org.secretKey}
+                          className="w-full font-mono text-xs px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-300"
+                        />
+                        <button
+                          onClick={() => handleCopy(org.secretKey, `sec-${orgId}`)}
+                          className="text-xs px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 whitespace-nowrap cursor-pointer"
+                        >
+                          {copiedKey === `sec-${orgId}` ? '✓ Copied' : 'Copy'}
+                        </button>
                       </div>
                     </div>
 
