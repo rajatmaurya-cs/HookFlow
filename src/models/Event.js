@@ -2,6 +2,11 @@ const mongoose = require('mongoose');
 
 const eventSchema = new mongoose.Schema(
   {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
     secretKey: {
       type: String,
       required: true,
@@ -15,13 +20,13 @@ const eventSchema = new mongoose.Schema(
       enum: ['pending', 'processing', 'completed', 'failed'],
       default: 'pending',
     },
+    reason: {
+      type: String,
+      default: '',
+    },
     attempts: {
       type: Number,
       default: 0,
-    },
-    lastError: {
-      type: String,
-      default: '',
     },
   },
   {
