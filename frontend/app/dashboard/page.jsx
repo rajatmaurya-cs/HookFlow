@@ -293,76 +293,15 @@ export default function DashboardPage() {
               </button>
             </div>
           </div>
-          </div>
 
           <div className="p-6 space-y-6 max-w-6xl w-full mx-auto">
-            {/* Create Organization Top Card */}
-            <section className="bg-[#001e2b] border border-[#0a3b4e] rounded-lg p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#00ed64]"></span>
-                  <h2 className="text-sm font-bold text-white uppercase tracking-wider">
-                    Register New Organization
-                  </h2>
-                </div>
-                <span className="text-[11px] font-mono text-[#94a3b8]">
-                  Auto generates secret-x-key
-                </span>
-              </div>
-
-              {orgError && (
-                <div className="mb-4 p-2.5 bg-rose-500/10 border border-rose-500/30 rounded text-rose-400 text-xs font-mono">
-                  {orgError}
-                </div>
-              )}
-
-              <form onSubmit={handleCreateOrg} className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[11px] font-mono uppercase text-[#94a3b8] mb-1">
-                    Organization Name
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Acme Payments"
-                    value={orgForm.name}
-                    onChange={(e) => setOrgForm({ ...orgForm, name: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 bg-[#021217] border border-[#0a3b4e] rounded text-white text-xs font-mono placeholder-[#475569] focus:outline-none focus:border-[#00ed64]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-mono uppercase text-[#94a3b8] mb-1">
-                    Target Destination API URL
-                  </label>
-                  <input
-                    type="url"
-                    placeholder="http://localhost:4000/receive-event"
-                    value={orgForm.destinationUrl}
-                    onChange={(e) => setOrgForm({ ...orgForm, destinationUrl: e.target.value })}
-                    className="w-full px-3 py-2 bg-[#021217] border border-[#0a3b4e] rounded text-white text-xs font-mono placeholder-[#475569] focus:outline-none focus:border-[#00ed64]"
-                  />
-                </div>
-
-                <div className="flex items-end">
-                  <button
-                    type="submit"
-                    disabled={creatingOrg}
-                    className="w-full py-2 px-4 bg-[#00ed64] hover:bg-[#00c955] text-black font-semibold rounded text-xs transition cursor-pointer disabled:opacity-50 tracking-wide"
-                  >
-                    {creatingOrg ? 'Generating...' : '+ Add Organization'}
-                  </button>
-                </div>
-              </form>
-            </section>
-
             {/* TAB 1: EVENTS VIEW (Document Explorer Format) */}
             {activeTab === 'events' && (
               <section className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-white uppercase tracking-wider">
-                      Documents ({events.length})
+                      Events ({events.length})
                     </span>
                     <span className="text-[11px] text-[#64748b] font-mono">
                       Query: &#123; user: &quot;{user?.id || user?._id}&quot; &#125;
@@ -372,7 +311,7 @@ export default function DashboardPage() {
 
                 {events.length === 0 ? (
                   <div className="bg-[#001e2b] border border-[#0a3b4e] rounded-lg p-12 text-center text-[#64748b] font-mono text-xs">
-                    No documents found in events collection. Post data to your Ingestion API.
+                    No Events found in events collection. Post data to your Ingestion API.
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -385,7 +324,7 @@ export default function DashboardPage() {
                         <div className="flex items-center justify-between pb-3 border-b border-[#0a3b4e] mb-3">
                           <div className="flex items-center gap-2">
                             <span className="text-[#64748b]">_id:</span>
-                            <span className="text-[#93c5fd] font-semibold">ObjectId(&apos;{evt._id}&apos;)</span>
+                            <span className="text-[#ff7961] font-semibold">ObjectId(&apos;{evt._id}&apos;)</span>
                           </div>
 
                           <div className="flex items-center gap-3">
@@ -429,7 +368,7 @@ export default function DashboardPage() {
                         <div className="space-y-1 text-[11px] leading-relaxed">
                           <div>
                             <span className="text-[#64748b]">user: </span>
-                            <span className="text-[#93c5fd]">ObjectId(&apos;{evt.user}&apos;)</span>
+                            <span className="text-[#ff7961]">ObjectId(&apos;{evt.user}&apos;)</span>
                           </div>
                           <div>
                             <span className="text-[#64748b]">secretKey: </span>
@@ -459,7 +398,66 @@ export default function DashboardPage() {
 
             {/* TAB 2: ORGANIZATIONS VIEW */}
             {activeTab === 'organizations' && (
-              <section className="space-y-4">
+              <section className="space-y-6">
+                {/* Register Organization Card */}
+                <div className="bg-[#001e2b] border border-[#0a3b4e] rounded-lg p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#00ed64]"></span>
+                      <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+                        Register New Organization
+                      </h2>
+                    </div>
+                    <span className="text-[11px] font-mono text-[#94a3b8]">
+                      Auto generates secret-x-key
+                    </span>
+                  </div>
+
+                  {orgError && (
+                    <div className="mb-4 p-2.5 bg-rose-500/10 border border-rose-500/30 rounded text-rose-400 text-xs font-mono">
+                      {orgError}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleCreateOrg} className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-mono uppercase text-[#94a3b8] mb-1">
+                        Organization Name
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Acme Payments"
+                        value={orgForm.name}
+                        onChange={(e) => setOrgForm({ ...orgForm, name: e.target.value })}
+                        required
+                        className="w-full px-3 py-2 bg-[#021217] border border-[#0a3b4e] rounded text-white text-xs font-mono placeholder-[#475569] focus:outline-none focus:border-[#00ed64]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-mono uppercase text-[#94a3b8] mb-1">
+                        Target Destination API URL
+                      </label>
+                      <input
+                        type="url"
+                        placeholder="http://localhost:4000/receive-event"
+                        value={orgForm.destinationUrl}
+                        onChange={(e) => setOrgForm({ ...orgForm, destinationUrl: e.target.value })}
+                        className="w-full px-3 py-2 bg-[#021217] border border-[#0a3b4e] rounded text-white text-xs font-mono placeholder-[#475569] focus:outline-none focus:border-[#00ed64]"
+                      />
+                    </div>
+
+                    <div className="flex items-end">
+                      <button
+                        type="submit"
+                        disabled={creatingOrg}
+                        className="w-full py-2 px-4 bg-[#00ed64] hover:bg-[#00c955] text-black font-semibold rounded text-xs transition cursor-pointer disabled:opacity-50 tracking-wide"
+                      >
+                        {creatingOrg ? 'Generating...' : '+ Add Organization'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-white uppercase tracking-wider">
                     Registered Organizations ({organizations.length})
