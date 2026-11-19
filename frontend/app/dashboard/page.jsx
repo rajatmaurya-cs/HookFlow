@@ -20,6 +20,9 @@ export default function DashboardPage() {
   const [selectedPayload, setSelectedPayload] = useState(null);
   const [copiedModal, setCopiedModal] = useState(false);
 
+  // Retrying state
+  const [retryingIds, setRetryingIds] = useState({});
+
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     const storedUser = localStorage.getItem('user');
@@ -92,6 +95,36 @@ export default function DashboardPage() {
       setOrgError(err.message || 'Error creating organization');
     } finally {
       setCreatingOrg(false);
+    }
+  };
+
+  const handleRetryEvent = async (eventId) => {
+    setRetryingIds((prev) => ({ ...prev, [eventId]: true }));
+    try {
+      const token = localStorage.getItem('accessToken');
+      const res = await fetch(`http://localhost:2000/api/events/${eventId}/retry`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to retry event');
+        return;
+      }
+
+      setEvents((prev) =>
+        prev.map((evt) => (evt._id === eventId ? { ...evt, status: 'pending', reason: '', attempts: 0 } : evt))
+      );
+
+      // Re-fetch shortly after so we see status progress to processing/completed
+      setTimeout(() => {
+        fetchData(token);
+      }, 1500);
+    } catch (err) {
+      alert('Error triggering retry: ' + err.message);
+    } finally {
+      setRetryingIds((prev) => ({ ...prev, [eventId]: false }));
     }
   };
 
@@ -312,12 +345,13 @@ export default function DashboardPage() {
                   <th className="py-3 px-4 text-center">Payload</th>
                   <th className="py-3 px-4">Reason / Error</th>
                   <th className="py-3 px-4">Timestamp</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
                 {events.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-500 text-sm">
+                    <td colSpan={7} className="py-8 text-center text-slate-500 text-sm">
                       No events received yet. Send a POST request to your Ingestion API!
                     </td>
                   </tr>
@@ -345,7 +379,6 @@ export default function DashboardPage() {
                           title="View formatted payload"
                           className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg bg-blue-600/15 text-blue-400 border border-blue-500/30 hover:bg-blue-600/25 transition cursor-pointer"
                         >
-                          {/* Eye SVG Icon */}
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
                             className="w-3.5 h-3.5"
@@ -373,6 +406,33 @@ export default function DashboardPage() {
                       </td>
                       <td className="py-3 px-4 text-xs text-slate-500 whitespace-nowrap">
                         {new Date(evt.createdAt).toLocaleString()}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        {evt.status === 'failed' ? (
+                          <button
+                            onClick={() => handleRetryEvent(evt._id)}
+                            disabled={retryingIds[evt._id]}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-rose-500/15 text-rose-400 border border-rose-500/30 hover:bg-rose-500/25 transition cursor-pointer disabled:opacity-50"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className={`w-3.5 h-3.5 ${retryingIds[evt._id] ? 'animate-spin' : ''}`}
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                              />
+                            </svg>
+                            {retryingIds[evt._id] ? 'Retrying...' : 'Retry'}
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-600">—</span>
+                        )}
                       </td>
                     </tr>
                   ))

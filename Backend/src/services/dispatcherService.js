@@ -1,6 +1,8 @@
 const Event = require('../models/Event');
 const { verifyEventOrganization } = require('./verificationService');
 
+const MAX_ATTEMPTS = 3;
+
 const dispatchSingleEvent = async (event) => {
   event.status = 'processing';
   await event.save();
@@ -49,6 +51,7 @@ const processPendingEvents = async () => {
   try {
     const pendingEvents = await Event.find({
       status: { $in: ['pending', 'failed'] },
+      attempts: { $lt: MAX_ATTEMPTS },
       nextRetryAt: { $lte: new Date() },
     }).limit(50);
 
@@ -64,7 +67,7 @@ const processPendingEvents = async () => {
   }
 };
 
-const startEventDispatcherCron = (intervalMs = 5 * 60 * 1000) => {
+const startEventDispatcherCron = (intervalMs = 5 * 1000) => {
   processPendingEvents();
   return setInterval(processPendingEvents, intervalMs);
 };
@@ -73,4 +76,5 @@ module.exports = {
   processPendingEvents,
   startEventDispatcherCron,
   dispatchSingleEvent,
+  MAX_ATTEMPTS,
 };
