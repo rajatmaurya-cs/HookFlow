@@ -409,7 +409,7 @@ export default function DashboardPage() {
                         {new Date(evt.createdAt).toLocaleString()}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        {evt.status === 'failed' || evt.status === 'dead' ? (
+                        {evt.status === 'dead' ? (
                           <button
                             onClick={() => handleRetryEvent(evt._id)}
                             disabled={retryingIds[evt._id]}
