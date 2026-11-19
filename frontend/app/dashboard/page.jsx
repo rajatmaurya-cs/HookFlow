@@ -117,7 +117,6 @@ export default function DashboardPage() {
         prev.map((evt) => (evt._id === eventId ? { ...evt, status: 'pending', reason: '', attempts: 0 } : evt))
       );
 
-      // Re-fetch shortly after so we see status progress to processing/completed
       setTimeout(() => {
         fetchData(token);
       }, 1500);
@@ -364,6 +363,8 @@ export default function DashboardPage() {
                           className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                             evt.status === 'completed'
                               ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                              : evt.status === 'dead'
+                              ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
                               : evt.status === 'failed'
                               ? 'bg-red-500/10 text-red-400 border border-red-500/20'
                               : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
@@ -408,7 +409,7 @@ export default function DashboardPage() {
                         {new Date(evt.createdAt).toLocaleString()}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        {evt.status === 'failed' ? (
+                        {evt.status === 'failed' || evt.status === 'dead' ? (
                           <button
                             onClick={() => handleRetryEvent(evt._id)}
                             disabled={retryingIds[evt._id]}
@@ -498,6 +499,8 @@ export default function DashboardPage() {
                   className={`capitalize ${
                     selectedPayload.status === 'completed'
                       ? 'text-emerald-400'
+                      : selectedPayload.status === 'dead'
+                      ? 'text-purple-400'
                       : selectedPayload.status === 'failed'
                       ? 'text-red-400'
                       : 'text-amber-400'

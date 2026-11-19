@@ -10,9 +10,10 @@ const dispatchSingleEvent = async (event) => {
   const verification = await verifyEventOrganization(event);
 
   if (!verification.valid) {
-    event.status = 'failed';
+    const nextAttempts = event.attempts + 1;
+    event.attempts = nextAttempts;
+    event.status = nextAttempts >= MAX_ATTEMPTS ? 'dead' : 'failed';
     event.reason = verification.reason;
-    event.attempts += 1;
     event.nextRetryAt = new Date(Date.now() + 5 * 1000);
     await event.save();
     return;
@@ -39,9 +40,10 @@ const dispatchSingleEvent = async (event) => {
     event.reason = '';
     await event.save();
   } catch (error) {
-    event.status = 'failed';
+    const nextAttempts = event.attempts + 1;
+    event.attempts = nextAttempts;
+    event.status = nextAttempts >= MAX_ATTEMPTS ? 'dead' : 'failed';
     event.reason = error.message;
-    event.attempts += 1;
     event.nextRetryAt = new Date(Date.now() + 5 * 1000);
     await event.save();
   }
@@ -51,7 +53,6 @@ const processPendingEvents = async () => {
   try {
     const pendingEvents = await Event.find({
       status: { $in: ['pending', 'failed'] },
-      attempts: { $lt: MAX_ATTEMPTS },
       nextRetryAt: { $lte: new Date() },
     }).limit(50);
 

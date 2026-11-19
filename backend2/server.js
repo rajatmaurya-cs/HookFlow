@@ -15,7 +15,7 @@ app.post('/receive-event', (req, res) => {
 app.post('/send-event', async (req, res) => {
   try {
 
-    const secretKey = "sec_aba1d28cdb9ffc51663a400024133721bd66b297750e6d0c"
+    const secretKey = "sec_5f529df612a3fb914d79395d3c6a5c40d64adb7c5d9c4a10"
 
     const userId = "6af0b7db7b540b7b50b8524e"
 
@@ -37,7 +37,7 @@ app.post('/send-event', async (req, res) => {
     const data = await response.json();
 
     return res.status(response.status).json(data);
-    
+
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
