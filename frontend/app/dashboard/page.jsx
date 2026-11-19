@@ -27,6 +27,8 @@ export default function DashboardPage() {
   // Retrying state
   const [retryingIds, setRetryingIds] = useState({});
 
+  const [refreshing, setRefreshing] = useState(false);
+
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     const storedUser = localStorage.getItem('user');
@@ -43,7 +45,8 @@ export default function DashboardPage() {
     fetchData(token);
   }, []);
 
-  const fetchData = async (token) => {
+  const fetchData = async (token, isManual = false) => {
+    if (isManual) setRefreshing(true);
     try {
       const [orgsRes, eventsRes] = await Promise.all([
         fetch('http://localhost:2000/api/organizations', {
@@ -69,6 +72,7 @@ export default function DashboardPage() {
       console.error('Failed to fetch dashboard data:', err);
     } finally {
       setLoading(false);
+      if (isManual) setRefreshing(false);
     }
   };
 
@@ -170,59 +174,22 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#021217] text-[#e2e8f0] font-sans flex flex-col selection:bg-[#00ed64] selection:text-black">
-      {/* 1. Top Global Navigation Bar */}
-      <header className="h-13 bg-[#001e2b] border-b border-[#0a3b4e] px-4 flex items-center justify-between z-20">
-        <div className="flex items-center gap-4 text-xs">
-          <Link href="/" className="flex items-center gap-2 group">
-            {/* MongoDB style green leaf icon */}
-            <div className="w-6 h-6 flex items-center justify-center">
-              <svg viewBox="0 0 24 24" className="w-5 h-5 text-[#00ed64]" fill="currentColor">
-                <path d="M12 2C12 2 8 8 8 13.5C8 17.5 10 20 12 22C14 20 16 17.5 16 13.5C16 8 12 2 12 2Z" />
-              </svg>
-            </div>
-            <span className="font-bold text-sm tracking-tight text-white group-hover:text-[#00ed64] transition-colors">
-              HookFlow
-            </span>
-          </Link>
-
-          <span className="text-[#475569] font-mono">/</span>
-
-          <div className="flex items-center gap-1.5 text-[#94a3b8] text-xs">
-            <span className="text-[#64748b]">PROJECT:</span>
-            <span className="font-semibold text-white">Production</span>
-          </div>
-
-          <span className="text-[#475569] font-mono">/</span>
-
-          <div className="flex items-center gap-1.5 text-[#94a3b8] text-xs">
-            <span className="text-[#64748b]">CLUSTER:</span>
-            <span className="font-semibold text-[#00ed64]">Cluster0</span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-2.5 py-1 rounded bg-[#021217] border border-[#0a3b4e] text-xs text-[#94a3b8]">
-            <span className="w-2 h-2 rounded-full bg-[#00ed64]"></span>
-            <span>User:</span>
-            <strong className="text-white font-medium">{user?.name}</strong>
-          </div>
-
-          <button
-            onClick={handleLogout}
-            className="text-xs px-3 py-1 bg-[#0a2733] hover:bg-[#0e3646] text-[#94a3b8] hover:text-white rounded border border-[#0f4356] transition cursor-pointer"
-          >
-            Logout
-          </button>
-        </div>
-      </header>
-
-      {/* 2. Main Workspace Layout */}
+      {/* Main Workspace Layout */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left Tree Explorer Sidebar */}
         <aside className="w-64 bg-[#001e2b] border-r border-[#0a3b4e] flex flex-col justify-between select-none">
           <div>
             <div className="p-3 border-b border-[#0a3b4e] flex items-center justify-between text-xs text-[#94a3b8]">
-              <span className="font-semibold text-white tracking-wider uppercase text-[11px]">Data Explorer</span>
+              <Link href="/" className="flex items-center gap-2 group">
+                <div className="w-5 h-5 flex items-center justify-center">
+                  <svg viewBox="0 0 24 24" className="w-4 h-4 text-[#00ed64]" fill="currentColor">
+                    <path d="M12 2C12 2 8 8 8 13.5C8 17.5 10 20 12 22C14 20 16 17.5 16 13.5C16 8 12 2 12 2Z" />
+                  </svg>
+                </div>
+                <span className="font-bold text-white tracking-wider uppercase text-[11px] group-hover:text-[#00ed64] transition-colors">
+                  DATA EXPLORER
+                </span>
+              </Link>
               <span className="text-[10px] bg-[#00ed64]/10 text-[#00ed64] px-1.5 py-0.5 rounded border border-[#00ed64]/30 font-mono">
                 LIVE
               </span>
@@ -285,24 +252,47 @@ export default function DashboardPage() {
 
         {/* Right Content Panel */}
         <div className="flex-1 flex flex-col bg-[#021217] overflow-y-auto">
-          {/* Collection Tab Breadcrumb Bar */}
-          <div className="h-10 bg-[#001e2b] border-b border-[#0a3b4e] px-4 flex items-center justify-between text-xs">
+          {/* Unified Breadcrumb Header Bar */}
+          <div className="h-12 bg-[#001e2b] border-b border-[#0a3b4e] px-4 flex items-center justify-between text-xs sticky top-0 z-20">
             <div className="flex items-center gap-2">
               <span className="text-[#64748b]">Cluster0 &gt; HookFlow &gt;</span>
               <span className="font-mono text-[#00ed64] font-semibold">{activeTab}</span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              {/* User Pill */}
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#021217] border border-[#0a3b4e] text-xs text-[#94a3b8]">
+                <span className="w-2 h-2 rounded-full bg-[#00ed64]"></span>
+                <span>User:</span>
+                <strong className="text-white font-medium">{user?.name}</strong>
+              </div>
+
+              {/* Refresh Button with Spinner & Loading State */}
               <button
-                onClick={() => fetchData(localStorage.getItem('accessToken'))}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#0a2733] hover:bg-[#0e3646] text-[#94a3b8] hover:text-white border border-[#0f4356] transition cursor-pointer text-xs"
+                onClick={() => fetchData(localStorage.getItem('accessToken'), true)}
+                disabled={refreshing}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#0a2733] hover:bg-[#0e3646] text-[#94a3b8] hover:text-white border border-[#0f4356] transition cursor-pointer text-xs disabled:opacity-50"
               >
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg
+                  className={`w-3.5 h-3.5 text-[#00ed64] ${refreshing ? 'animate-spin' : ''}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                <span>Refresh</span>
+                <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+              </button>
+
+              {/* Logout Button */}
+              <button
+                onClick={handleLogout}
+                className="text-xs px-3 py-1 bg-[#0a2733] hover:bg-[#0e3646] text-[#94a3b8] hover:text-white rounded border border-[#0f4356] transition cursor-pointer"
+              >
+                Logout
               </button>
             </div>
+          </div>
           </div>
 
           <div className="p-6 space-y-6 max-w-6xl w-full mx-auto">
