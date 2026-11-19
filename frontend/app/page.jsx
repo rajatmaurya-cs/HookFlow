@@ -34,23 +34,21 @@ export default function Home() {
 
       {/* Hero Section */}
       <main className="flex-1 flex flex-col items-center justify-center px-6 pt-16 pb-24 max-w-6xl mx-auto w-full">
-        <div className="text-center max-w-3xl flex flex-col items-center">
+        <div className="text-center max-w-4xl flex flex-col items-center">
           {/* Subtle Tag */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/5 border border-black/10 text-xs font-semibold text-black mb-8 tracking-wide uppercase">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/5 border border-black/10 text-xs font-semibold text-black mb-6 tracking-wide uppercase">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
             Webhook Ingestion & Relay Engine
           </div>
 
-          {/* Main Title */}
-          <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-black leading-[1.08] mb-6">
-            Never miss an <br className="hidden sm:inline" />
-            Event Again
+          {/* Main Title - reduced weight & balanced proportion */}
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight text-black leading-[1.15] mb-5">
+            Never miss an Event Again
           </h1>
 
-          {/* Subtitle */}
-          <p className="text-base sm:text-lg md:text-xl text-[#36454F]/85 font-normal leading-relaxed max-w-2xl mb-10">
-            A resilient dispatch pipeline engineered for high-reliability webhook delivery.
-            Instant duplicate interception with Redis, cryptographically secured organization keys, and an automated background dispatch engine.
+          {/* Subtitle - constrained to max 2 lines with wider container */}
+          <p className="text-sm sm:text-base md:text-lg text-[#36454F]/80 font-normal leading-relaxed max-w-3xl mb-8">
+            A resilient dispatch pipeline engineered for high-reliability webhook delivery. Instant duplicate interception with Redis, cryptographically secured organization keys, and an automated background dispatch engine.
           </p>
 
           {/* Primary Actions */}
