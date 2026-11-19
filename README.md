@@ -1,17 +1,12 @@
-<!-- 1. Project Hero Banner -->
-<div align="center" style="padding: 40px 28px; border-radius: 16px; border: 1px solid #30363d; background: radial-gradient(circle at top, rgba(56, 139, 253, 0.14) 0%, rgba(22, 27, 34, 0.92) 55%, rgba(13, 17, 23, 0.98) 100%); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3); margin-bottom: 20px;">
+<div align="center">
 
-  <h1 style="font-size: 2.6em; font-weight: 800; letter-spacing: -0.5px; margin: 0 0 14px 0; border-bottom: none; background: linear-gradient(90deg, #ffffff 0%, #79c0ff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-    HookFlow
-  </h1>
+<img src="https://capsule-render.vercel.app/api?type=waving&section=header&height=240&color=0:0d1117,50:1f6feb,100:79c0ff&text=HookFlow&fontColor=ffffff&fontSize=76&fontAlignY=38&desc=Fast%2C%20Reliable%2C%20Zero-Loss%20Webhook%20Delivery%20Engine&descSize=22&descAlignY=60&animation=fadeIn" width="100%" alt="HookFlow" />
 
-  <div style="display: inline-block; padding: 6px 18px; border-radius: 999px; border: 1px solid rgba(88, 166, 255, 0.35); background-color: rgba(56, 139, 253, 0.12); color: #58a6ff; font-size: 1.05em; font-weight: 600; letter-spacing: 0.3px; margin-bottom: 18px;">
-    Fast, Reliable, Zero-Loss Webhook Delivery Engine
-  </div>
+<p align="center">
+HookFlow is a webhook delivery engine designed for high-throughput, <b>zero-loss webhook ingestion</b>, <b>Redis-backed duplicate interception</b>, <b>secret key authentication</b>, and <b>automated background dispatching with retry handling</b>.
+</p>
 
-  <p style="max-width: 720px; margin: 0 auto; font-size: 1.05em; line-height: 1.7; color: #c9d1d9;">
-    HookFlow is a webhook delivery engine designed for high-throughput, zero-loss webhook ingestion, Redis-backed duplicate interception, secret key authentication, and automated background dispatching with retry handling.
-  </p>
+<img src="https://capsule-render.vercel.app/api?type=waving&section=footer&height=90&color=0:79c0ff,50:1f6feb,100:0d1117" width="100%" alt="" />
 
 </div>
 
