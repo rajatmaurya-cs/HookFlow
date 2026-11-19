@@ -20,10 +20,43 @@ app.post('/send-event', async (req, res) => {
     const userId = "6af0b7db7b540b7b50b8524e"
 
     const payload = {
-      orderId:"45393x7nnv83",
-      productName:"Samsung Mobile",
-      price:"90k"
-    }
+  orderId: "45393x7nnv83",
+  SellerAssigned: "Arvind Traders",
+  productName: "Beard Trimmer",
+  ProductOrigin: "Japan",
+  brand: "Panasonic",
+  model: "ER-GB80",
+  category: "Personal Grooming",
+  quantity: 2,
+  price: "90k",
+  discount: "10%",
+  tax: "18%",
+  paymentStatus: "Paid",
+  paymentMethod: "UPI",
+  orderStatus: "Shipped",
+  shippingAddress: {
+    name: "Rahul Sharma",
+    street: "42 Green Park",
+    city: "New Delhi",
+    state: "Delhi",
+    pincode: "110016",
+    country: "India"
+  },
+  shipping: {
+    courier: "BlueDart",
+    trackingId: "BD782934561IN",
+    estimatedDelivery: "2026-11-24"
+  },
+  customer: {
+    customerId: "CUST78291",
+    email: "rahul.sharma@example.com",
+    phone: "+91 9876543210"
+  },
+  orderDate: "2026-11-19T14:30:00Z",
+  warranty: "2 Years",
+  returnEligible: true,
+  sellerRating: 4.7
+};
 
     const response = await fetch('http://localhost:2000/api/events/ingest', {
       method: 'POST',
