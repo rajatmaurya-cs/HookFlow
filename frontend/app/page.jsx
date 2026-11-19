@@ -164,88 +164,131 @@ public class HookFlowSender {
       </header>
 
       {/* Hero Section */}
-      <main className="max-w-6xl mx-auto px-6 pt-20 pb-16 flex-1 flex flex-col items-center">
-        <div className="text-center max-w-4xl mx-auto space-y-6">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/5 border border-black/10 text-xs font-medium text-black">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            Webhook Ingestion & Relay Engine
-          </div>
+      <main className="max-w-6xl mx-auto px-6 pt-16 sm:pt-20 pb-20 flex-1 flex flex-col items-center">
+        {/* Hero Badge */}
+        <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-white border border-[#36454F]/15 text-[11px] font-semibold text-[#36454F] shadow-[0_2px_8px_rgba(0,0,0,0.04)] mb-8 tracking-wide uppercase">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          Webhook Ingestion & Relay Engine
+          <span className="text-black/30 font-light">|</span>
+          <span className="text-black font-mono text-[10px] tracking-normal font-bold">v1.0 Ready</span>
+        </div>
 
-          {/* Main Title */}
-          <h1 className="text-4xl sm:text-6xl font-semibold text-black tracking-tight leading-[1.15]">
-            Never miss an Event Again
+        {/* Hero Title & Description */}
+        <div className="text-center max-w-4xl mx-auto space-y-5">
+          <h1 className="text-4xl sm:text-6xl md:text-[68px] font-bold text-black tracking-[-0.03em] leading-[1.08]">
+            Never miss an <span className="underline decoration-black/20 decoration-wavy underline-offset-8">Event</span> Again
           </h1>
 
-          {/* Subtitle strictly 2 lines */}
-          <p className="text-base sm:text-lg text-[#36454F]/85 max-w-3xl mx-auto font-normal leading-relaxed text-balance">
+          <p className="text-sm sm:text-base md:text-lg text-[#36454F]/80 max-w-2xl mx-auto font-normal leading-relaxed text-balance pt-1">
             A resilient dispatch pipeline engineered for high-reliability webhook delivery. Instant duplicate interception with Redis, cryptographically secured organization keys, and an automated background dispatch engine.
           </p>
 
-          {/* Conditional CTA Button */}
-          <div className="flex items-center justify-center w-full pt-2">
+          {/* CTA Action */}
+          <div className="flex items-center justify-center pt-4">
             {mounted && isLoggedIn ? (
               <Link
                 href="/dashboard"
-                className="px-8 py-3.5 bg-black hover:bg-neutral-800 text-white font-semibold text-sm rounded-full transition-all shadow-md hover:shadow-lg text-center"
+                className="group relative inline-flex items-center gap-2 px-8 py-3.5 bg-black hover:bg-neutral-800 text-white font-semibold text-sm rounded-full transition-all duration-200 shadow-[0_4px_16px_rgba(0,0,0,0.16)] hover:shadow-[0_6px_24px_rgba(0,0,0,0.24)] hover:-translate-y-0.5"
               >
-                Open Dashboard →
+                <span>Open Dashboard</span>
+                <span className="transition-transform group-hover:translate-x-1">→</span>
               </Link>
             ) : (
               <Link
                 href="/register"
-                className="px-8 py-3.5 bg-black hover:bg-neutral-800 text-white font-semibold text-sm rounded-full transition-all shadow-md hover:shadow-lg text-center"
+                className="group relative inline-flex items-center gap-2 px-8 py-3.5 bg-black hover:bg-neutral-800 text-white font-semibold text-sm rounded-full transition-all duration-200 shadow-[0_4px_16px_rgba(0,0,0,0.16)] hover:shadow-[0_6px_24px_rgba(0,0,0,0.24)] hover:-translate-y-0.5"
               >
-                Start Free Integration
+                <span>Start Free Integration</span>
+                <span className="transition-transform group-hover:translate-x-1">→</span>
               </Link>
             )}
           </div>
         </div>
 
-        {/* Specifications Cards Grid */}
+        {/* Enhanced Specifications Cards Grid */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-20 w-full">
-          {/* Redis Card */}
-          <div className="bg-white border border-[#36454F]/10 rounded-2xl p-7 shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:border-black/30 transition-all group">
-            <div className="w-10 h-10 rounded-xl bg-black/5 flex items-center justify-center text-black mb-5 group-hover:bg-black group-hover:text-white transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
+          {/* Card 1: Redis Idempotency */}
+          <div className="relative bg-white border border-[#36454F]/12 rounded-2xl p-7 sm:p-8 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)] hover:border-black/40 transition-all duration-300 flex flex-col justify-between group overflow-hidden">
+            <div className="absolute top-0 right-0 w-28 h-28 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-emerald-500/10 transition-all"></div>
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <div className="w-12 h-12 rounded-xl bg-black text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-black/60 bg-[#F2F3F4] px-2.5 py-1 rounded-full border border-black/5">
+                  &lt; 2ms latency
+                </span>
+              </div>
+              <h2 className="text-xl font-bold text-black mb-2.5 tracking-tight group-hover:text-black">
+                Redis Idempotency
+              </h2>
+              <p className="text-xs sm:text-sm text-[#36454F]/85 leading-relaxed">
+                Atomic caching layer that intercepts duplicate requests and rapid repeated clicks at microsecond speeds. Payload hashes ensure duplicate events are caught without database overhead.
+              </p>
             </div>
-            <h2 className="text-lg font-bold text-black mb-2 tracking-tight">
-              Redis Idempotency
-            </h2>
-            <p className="text-sm text-[#36454F]/80 leading-relaxed font-normal">
-              Atomic caching layer that intercepts duplicate requests and rapid repeated clicks at microsecond speeds. Payload hashes ensure duplicate events are caught without database overhead.
-            </p>
+            <div className="mt-6 pt-4 border-t border-[#36454F]/8 flex items-center gap-2 text-[11px] font-mono text-black/70">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              <span>SET idemp:key EX 300 NX</span>
+            </div>
           </div>
 
-          {/* Secret Key Card */}
-          <div className="bg-white border border-[#36454F]/10 rounded-2xl p-7 shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:border-black/30 transition-all group">
-            <div className="w-10 h-10 rounded-xl bg-black/5 flex items-center justify-center text-black mb-5 group-hover:bg-black group-hover:text-white transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
+          {/* Card 2: Secret Key Verification */}
+          <div className="relative bg-white border border-[#36454F]/12 rounded-2xl p-7 sm:p-8 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)] hover:border-black/40 transition-all duration-300 flex flex-col justify-between group overflow-hidden">
+            <div className="absolute top-0 right-0 w-28 h-28 bg-blue-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-blue-500/10 transition-all"></div>
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <div className="w-12 h-12 rounded-xl bg-black text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-black/60 bg-[#F2F3F4] px-2.5 py-1 rounded-full border border-black/5">
+                  sec_••••••
+                </span>
+              </div>
+              <h2 className="text-xl font-bold text-black mb-2.5 tracking-tight group-hover:text-black">
+                Secret Key Verification
+              </h2>
+              <p className="text-xs sm:text-sm text-[#36454F]/85 leading-relaxed">
+                Each organization receives an isolated, unforgeable secret key (<code className="font-mono text-xs px-1.5 py-0.5 bg-black/5 text-black rounded font-medium">secret-x-key</code>). Incoming data is authenticated and validated before hitting processing queues.
+              </p>
             </div>
-            <h2 className="text-lg font-bold text-black mb-2 tracking-tight">
-              Secret Key Verification
-            </h2>
-            <p className="text-sm text-[#36454F]/80 leading-relaxed font-normal">
-              Each organization receives an isolated, unforgeable secret key (<code className="font-mono text-xs px-1.5 py-0.5 bg-black/5 text-black rounded">secret-x-key</code>). Incoming data is authenticated and validated before hitting processing queues.
-            </p>
+            <div className="mt-6 pt-4 border-t border-[#36454F]/8 flex items-center gap-2 text-[11px] font-mono text-black/70">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+              <span>HMAC isolation per organization</span>
+            </div>
           </div>
 
-          {/* Auto-Dispatch & Backoff Card */}
-          <div className="bg-white border border-[#36454F]/10 rounded-2xl p-7 shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:border-black/30 transition-all group">
-            <div className="w-10 h-10 rounded-xl bg-black/5 flex items-center justify-center text-black mb-5 group-hover:bg-black group-hover:text-white transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
+          {/* Card 3: Automated Relay & Backoff */}
+          <div className="relative bg-white border border-[#36454F]/12 rounded-2xl p-7 sm:p-8 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)] hover:border-black/40 transition-all duration-300 flex flex-col justify-between group overflow-hidden">
+            <div className="absolute top-0 right-0 w-28 h-28 bg-amber-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/10 transition-all"></div>
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <div className="w-12 h-12 rounded-xl bg-black text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </div>
+                <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-black/60 bg-[#F2F3F4] px-2.5 py-1 rounded-full border border-black/5">
+                  5s auto-poll
+                </span>
+              </div>
+              <h2 className="text-xl font-bold text-black mb-2.5 tracking-tight group-hover:text-black">
+                Automated Relay & Backoff
+              </h2>
+              <p className="text-xs sm:text-sm text-[#36454F]/85 leading-relaxed">
+                Background polling monitors pending events continuously. If target destination endpoints fail or timeout, exponential backoff retries preserve your event lifecycle until manual recovery.
+              </p>
             </div>
-            <h2 className="text-lg font-bold text-black mb-2 tracking-tight">
-              Automated Relay & Backoff
-            </h2>
-            <p className="text-sm text-[#36454F]/80 leading-relaxed font-normal">
-              Background polling monitors pending events continuously. If target destination endpoints fail or timeout, exponential backoff retries preserve your event lifecycle until manual recovery.
-            </p>
+            <div className="mt-6 pt-4 border-t border-[#36454F]/8 flex items-center gap-2 text-[11px] font-mono text-black/70">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+              <span>Dead-letter circuit breaker</span>
+            </div>
           </div>
         </section>
 
