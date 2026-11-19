@@ -1,6 +1,20 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
 export default function Home() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      setIsLoggedIn(true);
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#F2F3F4] text-[#36454F] flex flex-col justify-between selection:bg-black selection:text-white">
       {/* Navigation Header */}
@@ -15,19 +29,30 @@ export default function Home() {
             </span>
           </Link>
 
-          <nav className="flex items-center gap-3 sm:gap-6">
-            <Link
-              href="/login"
-              className="text-sm font-semibold text-[#36454F] hover:text-black transition-colors px-3 py-2"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/register"
-              className="text-sm font-semibold bg-black hover:bg-neutral-800 text-white px-5 py-2.5 rounded-full transition-all hover:shadow-md cursor-pointer"
-            >
-              Get Started
-            </Link>
+          <nav className="flex items-center gap-3 sm:gap-4">
+            {mounted && isLoggedIn ? (
+              <Link
+                href="/dashboard"
+                className="text-sm font-semibold bg-black hover:bg-neutral-800 text-white px-5 py-2.5 rounded-full transition-all hover:shadow-md cursor-pointer"
+              >
+                Go to Dashboard →
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="text-sm font-semibold text-[#36454F] hover:text-black transition-colors px-3 py-2"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/register"
+                  className="text-sm font-semibold bg-black hover:bg-neutral-800 text-white px-5 py-2.5 rounded-full transition-all hover:shadow-md cursor-pointer"
+                >
+                  Get Started
+                </Link>
+              </>
+            )}
           </nav>
         </div>
       </header>
@@ -41,30 +66,33 @@ export default function Home() {
             Webhook Ingestion & Relay Engine
           </div>
 
-          {/* Main Title - reduced weight & balanced proportion */}
+          {/* Main Title */}
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight text-black leading-[1.15] mb-5">
             Never miss an Event Again
           </h1>
 
-          {/* Subtitle - constrained to max 2 lines with wider container */}
+          {/* Subtitle */}
           <p className="text-sm sm:text-base md:text-lg text-[#36454F]/80 font-normal leading-relaxed max-w-3xl mb-8">
             A resilient dispatch pipeline engineered for high-reliability webhook delivery. Instant duplicate interception with Redis, cryptographically secured organization keys, and an automated background dispatch engine.
           </p>
 
-          {/* Primary Actions */}
-          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-            <Link
-              href="/register"
-              className="w-full sm:w-auto px-8 py-3.5 bg-black hover:bg-neutral-800 text-white font-semibold text-sm rounded-full transition-all shadow-md hover:shadow-lg text-center"
-            >
-              Start Free Integration
-            </Link>
-            <Link
-              href="/login"
-              className="w-full sm:w-auto px-8 py-3.5 bg-white hover:bg-[#F2F3F4] text-[#36454F] border border-[#36454F]/20 font-semibold text-sm rounded-full transition-all text-center"
-            >
-              Open Dashboard →
-            </Link>
+          {/* Primary Action - Conditional single button */}
+          <div className="flex items-center justify-center w-full">
+            {mounted && isLoggedIn ? (
+              <Link
+                href="/dashboard"
+                className="px-8 py-3.5 bg-black hover:bg-neutral-800 text-white font-semibold text-sm rounded-full transition-all shadow-md hover:shadow-lg text-center"
+              >
+                Open Dashboard →
+              </Link>
+            ) : (
+              <Link
+                href="/register"
+                className="px-8 py-3.5 bg-black hover:bg-neutral-800 text-white font-semibold text-sm rounded-full transition-all shadow-md hover:shadow-lg text-center"
+              >
+                Start Free Integration
+              </Link>
+            )}
           </div>
         </div>
 
