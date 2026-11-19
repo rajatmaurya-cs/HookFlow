@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -9,6 +10,9 @@ export default function DashboardPage() {
   const [organizations, setOrganizations] = useState([]);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Active Tab: "events" | "organizations"
+  const [activeTab, setActiveTab] = useState('events');
 
   const [orgForm, setOrgForm] = useState({ name: '', destinationUrl: '' });
   const [creatingOrg, setCreatingOrg] = useState(false);
@@ -91,6 +95,7 @@ export default function DashboardPage() {
 
       setOrganizations([data.organization, ...organizations]);
       setOrgForm({ name: '', destinationUrl: '' });
+      setActiveTab('organizations');
     } catch (err) {
       setOrgError(err.message || 'Error creating organization');
     } finally {
@@ -154,384 +159,445 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
-        Loading dashboard...
+      <div className="min-h-screen bg-[#021217] flex items-center justify-center text-[#94a3b8] font-mono text-sm">
+        <span className="inline-flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-[#00ed64] animate-pulse"></span>
+          Connecting to HookFlow Data Explorer...
+        </span>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      {/* Header */}
-      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur sticky top-0 z-10 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-lg">
-            H
+    <div className="min-h-screen bg-[#021217] text-[#e2e8f0] font-sans flex flex-col selection:bg-[#00ed64] selection:text-black">
+      {/* 1. Top Global Navigation Bar */}
+      <header className="h-13 bg-[#001e2b] border-b border-[#0a3b4e] px-4 flex items-center justify-between z-20">
+        <div className="flex items-center gap-4 text-xs">
+          <Link href="/" className="flex items-center gap-2 group">
+            {/* MongoDB style green leaf icon */}
+            <div className="w-6 h-6 flex items-center justify-center">
+              <svg viewBox="0 0 24 24" className="w-5 h-5 text-[#00ed64]" fill="currentColor">
+                <path d="M12 2C12 2 8 8 8 13.5C8 17.5 10 20 12 22C14 20 16 17.5 16 13.5C16 8 12 2 12 2Z" />
+              </svg>
+            </div>
+            <span className="font-bold text-sm tracking-tight text-white group-hover:text-[#00ed64] transition-colors">
+              HookFlow
+            </span>
+          </Link>
+
+          <span className="text-[#475569] font-mono">/</span>
+
+          <div className="flex items-center gap-1.5 text-[#94a3b8] text-xs">
+            <span className="text-[#64748b]">PROJECT:</span>
+            <span className="font-semibold text-white">Production</span>
           </div>
-          <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-            HookFlow
-          </span>
+
+          <span className="text-[#475569] font-mono">/</span>
+
+          <div className="flex items-center gap-1.5 text-[#94a3b8] text-xs">
+            <span className="text-[#64748b]">CLUSTER:</span>
+            <span className="font-semibold text-[#00ed64]">Cluster0</span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-slate-400">
-            Welcome, <strong className="text-white">{user?.name}</strong>
-          </span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-2.5 py-1 rounded bg-[#021217] border border-[#0a3b4e] text-xs text-[#94a3b8]">
+            <span className="w-2 h-2 rounded-full bg-[#00ed64]"></span>
+            <span>User:</span>
+            <strong className="text-white font-medium">{user?.name}</strong>
+          </div>
+
           <button
             onClick={handleLogout}
-            className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 transition cursor-pointer"
+            className="text-xs px-3 py-1 bg-[#0a2733] hover:bg-[#0e3646] text-[#94a3b8] hover:text-white rounded border border-[#0f4356] transition cursor-pointer"
           >
             Logout
           </button>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-10">
-        {/* Create Organization Section */}
-        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-          <h2 className="text-lg font-semibold text-white mb-1">Create Organization</h2>
-          <p className="text-sm text-slate-400 mb-5">
-            Register your organization to generate your secret key and set your target destination webhook API.
-          </p>
-
-          {orgError && (
-            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
-              {orgError}
-            </div>
-          )}
-
-          <form onSubmit={handleCreateOrg} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Organization Name</label>
-              <input
-                type="text"
-                placeholder="e.g. Acme Corp"
-                value={orgForm.name}
-                onChange={(e) => setOrgForm({ ...orgForm, name: e.target.value })}
-                required
-                className="w-full px-3.5 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              />
+      {/* 2. Main Workspace Layout */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left Tree Explorer Sidebar */}
+        <aside className="w-64 bg-[#001e2b] border-r border-[#0a3b4e] flex flex-col justify-between select-none">
+          <div>
+            <div className="p-3 border-b border-[#0a3b4e] flex items-center justify-between text-xs text-[#94a3b8]">
+              <span className="font-semibold text-white tracking-wider uppercase text-[11px]">Data Explorer</span>
+              <span className="text-[10px] bg-[#00ed64]/10 text-[#00ed64] px-1.5 py-0.5 rounded border border-[#00ed64]/30 font-mono">
+                LIVE
+              </span>
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Target Destination API URL</label>
-              <input
-                type="url"
-                placeholder="https://api.yourdomain.com/webhooks/receive"
-                value={orgForm.destinationUrl}
-                onChange={(e) => setOrgForm({ ...orgForm, destinationUrl: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              />
-            </div>
+            <div className="p-2 space-y-1">
+              <div className="text-[11px] font-semibold text-[#64748b] px-2 py-1 tracking-wider uppercase">
+                COLLECTIONS
+              </div>
 
-            <div className="flex items-end">
               <button
-                type="submit"
-                disabled={creatingOrg}
-                className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-medium rounded-xl text-sm transition shadow-lg shadow-blue-500/20 disabled:opacity-50 cursor-pointer"
+                onClick={() => setActiveTab('events')}
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-xs transition cursor-pointer font-medium ${
+                  activeTab === 'events'
+                    ? 'bg-[#003847] text-[#00ed64] border-l-2 border-[#00ed64]'
+                    : 'text-[#94a3b8] hover:bg-[#0a2733] hover:text-white'
+                }`}
               >
-                {creatingOrg ? 'Generating Key...' : 'Register Organization'}
+                <div className="flex items-center gap-2">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                  </svg>
+                  <span>events</span>
+                </div>
+                <span className="text-[10px] font-mono bg-[#021217] px-1.5 py-0.5 rounded text-[#94a3b8]">
+                  {events.length}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('organizations')}
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-xs transition cursor-pointer font-medium ${
+                  activeTab === 'organizations'
+                    ? 'bg-[#003847] text-[#00ed64] border-l-2 border-[#00ed64]'
+                    : 'text-[#94a3b8] hover:bg-[#0a2733] hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                  <span>organizations</span>
+                </div>
+                <span className="text-[10px] font-mono bg-[#021217] px-1.5 py-0.5 rounded text-[#94a3b8]">
+                  {organizations.length}
+                </span>
               </button>
             </div>
-          </form>
-        </section>
-
-        {/* Organizations Section */}
-        <section className="space-y-4">
-          <h2 className="text-xl font-bold text-white">Your Organizations</h2>
-
-          {organizations.length === 0 ? (
-            <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-8 text-center text-slate-500 text-sm">
-              No organizations created yet. Register one above to get your secret key!
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {organizations.map((org) => {
-                const orgId = org._id || org.id;
-                const isVisible = showSecret[orgId];
-
-                return (
-                  <div key={orgId} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-lg text-white">{org.name}</h3>
-                      <span className="text-xs bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-mono">
-                        Active
-                      </span>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-medium text-slate-400">
-                          Secret Key (Header: secret-x-key)
-                        </label>
-                        <button
-                          onClick={() => toggleSecret(orgId)}
-                          className="text-xs text-blue-400 hover:text-blue-300 cursor-pointer underline"
-                        >
-                          {isVisible ? 'Hide Secret' : 'Show Secret'}
-                        </button>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <input
-                          type={isVisible ? 'text' : 'password'}
-                          readOnly
-                          value={org.secretKey}
-                          className="w-full font-mono text-xs px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-300"
-                        />
-                        <button
-                          onClick={() => handleCopy(org.secretKey, `sec-${orgId}`)}
-                          className="text-xs px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 whitespace-nowrap cursor-pointer"
-                        >
-                          {copiedKey === `sec-${orgId}` ? '✓ Copied' : 'Copy'}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-slate-400">Ingestion API URL</label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          readOnly
-                          value="http://localhost:2000/api/events/ingest"
-                          className="w-full font-mono text-xs px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-blue-400"
-                        />
-                        <button
-                          onClick={() => handleCopy('http://localhost:2000/api/events/ingest', `url-${orgId}`)}
-                          className="text-xs px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 whitespace-nowrap cursor-pointer"
-                        >
-                          {copiedKey === `url-${orgId}` ? '✓ Copied' : 'Copy'}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="text-xs text-slate-400 pt-2 border-t border-slate-800">
-                      Destination Forwarding URL:{' '}
-                      <span className="text-slate-200 font-mono">
-                        {org.destinationUrl || 'Not configured'}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        {/* Webhook Activity Table */}
-        <section className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-white">Webhook Activity & Dispatches</h2>
-              <p className="text-xs text-slate-400">Recent events ingested and forwarded by the scanner</p>
-            </div>
-            <button
-              onClick={() => fetchData(localStorage.getItem('accessToken'))}
-              className="text-xs px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 cursor-pointer"
-            >
-              Refresh Logs
-            </button>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-950/50 text-slate-400 text-xs uppercase border-b border-slate-800">
-                <tr>
-                  <th className="py-3 px-4">Event ID</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Attempts</th>
-                  <th className="py-3 px-4 text-center">Payload</th>
-                  <th className="py-3 px-4">Reason / Error</th>
-                  <th className="py-3 px-4">Timestamp</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                {events.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-8 text-center text-slate-500 text-sm">
-                      No events received yet. Send a POST request to your Ingestion API!
-                    </td>
-                  </tr>
-                ) : (
-                  events.map((evt) => (
-                    <tr key={evt._id} className="hover:bg-slate-800/30">
-                      <td className="py-3 px-4 font-mono text-xs text-slate-400">{evt._id}</td>
-                      <td className="py-3 px-4">
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                            evt.status === 'completed'
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                              : evt.status === 'dead'
-                              ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-                              : evt.status === 'failed'
-                              ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                              : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                          }`}
-                        >
-                          {evt.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-xs font-mono">{evt.attempts}</td>
-                      <td className="py-3 px-4 text-center">
-                        <button
-                          onClick={() => setSelectedPayload(evt)}
-                          title="View formatted payload"
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg bg-blue-600/15 text-blue-400 border border-blue-500/30 hover:bg-blue-600/25 transition cursor-pointer"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="w-3.5 h-3.5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                            />
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                            />
-                          </svg>
-                          View
-                        </button>
-                      </td>
-                      <td className="py-3 px-4 text-xs text-red-400 max-w-xs truncate">
-                        {evt.reason || '—'}
-                      </td>
-                      <td className="py-3 px-4 text-xs text-slate-500 whitespace-nowrap">
-                        {new Date(evt.createdAt).toLocaleString()}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        {evt.status === 'dead' ? (
-                          <button
-                            onClick={() => handleRetryEvent(evt._id)}
-                            disabled={retryingIds[evt._id]}
-                            className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-rose-500/15 text-rose-400 border border-rose-500/30 hover:bg-rose-500/25 transition cursor-pointer disabled:opacity-50"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className={`w-3.5 h-3.5 ${retryingIds[evt._id] ? 'animate-spin' : ''}`}
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={2}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                              />
-                            </svg>
-                            {retryingIds[evt._id] ? 'Retrying...' : 'Retry'}
-                          </button>
-                        ) : (
-                          <span className="text-xs text-slate-600">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          {/* Sidebar System Status Footer */}
+          <div className="p-3 border-t border-[#0a3b4e] text-[11px] text-[#64748b]">
+            <div className="flex items-center gap-2 text-white mb-1">
+              <span className="w-2 h-2 rounded-full bg-[#00ed64]"></span>
+              <span className="font-semibold text-xs">Dispatch Engine</span>
+            </div>
+            <p className="text-[10px] text-[#94a3b8]">Auto-retry: 5s interval</p>
           </div>
-        </section>
-      </main>
+        </aside>
 
-      {/* Structured Payload Modal Popup */}
-      {selectedPayload && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-            {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
-              <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
-                    />
-                  </svg>
+        {/* Right Content Panel */}
+        <div className="flex-1 flex flex-col bg-[#021217] overflow-y-auto">
+          {/* Collection Tab Breadcrumb Bar */}
+          <div className="h-10 bg-[#001e2b] border-b border-[#0a3b4e] px-4 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-[#64748b]">Cluster0 &gt; HookFlow &gt;</span>
+              <span className="font-mono text-[#00ed64] font-semibold">{activeTab}</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => fetchData(localStorage.getItem('accessToken'))}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#0a2733] hover:bg-[#0e3646] text-[#94a3b8] hover:text-white border border-[#0f4356] transition cursor-pointer text-xs"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Refresh</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="p-6 space-y-6 max-w-6xl w-full mx-auto">
+            {/* Create Organization Top Card */}
+            <section className="bg-[#001e2b] border border-[#0a3b4e] rounded-lg p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#00ed64]"></span>
+                  <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+                    Register New Organization
+                  </h2>
                 </div>
+                <span className="text-[11px] font-mono text-[#94a3b8]">
+                  Auto generates secret-x-key
+                </span>
+              </div>
+
+              {orgError && (
+                <div className="mb-4 p-2.5 bg-rose-500/10 border border-rose-500/30 rounded text-rose-400 text-xs font-mono">
+                  {orgError}
+                </div>
+              )}
+
+              <form onSubmit={handleCreateOrg} className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
-                  <h3 className="text-base font-semibold text-white">Event Payload</h3>
-                  <p className="text-xs font-mono text-slate-400">
-                    ID: {selectedPayload._id}
-                  </p>
+                  <label className="block text-[11px] font-mono uppercase text-[#94a3b8] mb-1">
+                    Organization Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Acme Payments"
+                    value={orgForm.name}
+                    onChange={(e) => setOrgForm({ ...orgForm, name: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 bg-[#021217] border border-[#0a3b4e] rounded text-white text-xs font-mono placeholder-[#475569] focus:outline-none focus:border-[#00ed64]"
+                  />
                 </div>
+
+                <div>
+                  <label className="block text-[11px] font-mono uppercase text-[#94a3b8] mb-1">
+                    Target Destination API URL
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="http://localhost:4000/receive-event"
+                    value={orgForm.destinationUrl}
+                    onChange={(e) => setOrgForm({ ...orgForm, destinationUrl: e.target.value })}
+                    className="w-full px-3 py-2 bg-[#021217] border border-[#0a3b4e] rounded text-white text-xs font-mono placeholder-[#475569] focus:outline-none focus:border-[#00ed64]"
+                  />
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    type="submit"
+                    disabled={creatingOrg}
+                    className="w-full py-2 px-4 bg-[#00ed64] hover:bg-[#00c955] text-black font-semibold rounded text-xs transition cursor-pointer disabled:opacity-50 tracking-wide"
+                  >
+                    {creatingOrg ? 'Generating...' : '+ Add Organization'}
+                  </button>
+                </div>
+              </form>
+            </section>
+
+            {/* TAB 1: EVENTS VIEW (Document Explorer Format) */}
+            {activeTab === 'events' && (
+              <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-white uppercase tracking-wider">
+                      Documents ({events.length})
+                    </span>
+                    <span className="text-[11px] text-[#64748b] font-mono">
+                      Query: &#123; user: &quot;{user?.id || user?._id}&quot; &#125;
+                    </span>
+                  </div>
+                </div>
+
+                {events.length === 0 ? (
+                  <div className="bg-[#001e2b] border border-[#0a3b4e] rounded-lg p-12 text-center text-[#64748b] font-mono text-xs">
+                    No documents found in events collection. Post data to your Ingestion API.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {events.map((evt) => (
+                      <div
+                        key={evt._id}
+                        className="bg-[#001e2b] border border-[#0a3b4e] rounded-lg p-4 font-mono text-xs hover:border-[#00ed64]/40 transition-colors"
+                      >
+                        {/* Document Top Bar */}
+                        <div className="flex items-center justify-between pb-3 border-b border-[#0a3b4e] mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[#64748b]">_id:</span>
+                            <span className="text-[#93c5fd] font-semibold">ObjectId(&apos;{evt._id}&apos;)</span>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            {/* Status Badge */}
+                            <span
+                              className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${
+                                evt.status === 'completed'
+                                  ? 'bg-[#00ed64]/10 text-[#00ed64] border border-[#00ed64]/30'
+                                  : evt.status === 'dead'
+                                  ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30'
+                                  : evt.status === 'failed'
+                                  ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                                  : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                              }`}
+                            >
+                              {evt.status}
+                            </span>
+
+                            {/* View Payload Button */}
+                            <button
+                              onClick={() => setSelectedPayload(evt)}
+                              className="px-2.5 py-1 bg-[#021217] hover:bg-[#003847] text-[#93c5fd] border border-[#0a3b4e] hover:border-[#00ed64] rounded transition cursor-pointer text-[11px]"
+                            >
+                              View Payload &#123;...&#125;
+                            </button>
+
+                            {/* Retry Button if Dead */}
+                            {evt.status === 'dead' && (
+                              <button
+                                onClick={() => handleRetryEvent(evt._id)}
+                                disabled={retryingIds[evt._id]}
+                                className="px-2.5 py-1 bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 rounded transition cursor-pointer text-[11px] flex items-center gap-1"
+                              >
+                                {retryingIds[evt._id] ? 'Retrying...' : '↻ Retry Dispatch'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Document JSON Fields (MongoDB Explorer Replica) */}
+                        <div className="space-y-1 text-[11px] leading-relaxed">
+                          <div>
+                            <span className="text-[#64748b]">user: </span>
+                            <span className="text-[#93c5fd]">ObjectId(&apos;{evt.user}&apos;)</span>
+                          </div>
+                          <div>
+                            <span className="text-[#64748b]">secretKey: </span>
+                            <span className="text-[#00ed64]">&quot;{evt.secretKey}&quot;</span>
+                          </div>
+                          <div>
+                            <span className="text-[#64748b]">attempts: </span>
+                            <span className="text-[#f59e0b]">{evt.attempts}</span>
+                          </div>
+                          {evt.reason && (
+                            <div>
+                              <span className="text-[#64748b]">reason: </span>
+                              <span className="text-rose-400">&quot;{evt.reason}&quot;</span>
+                            </div>
+                          )}
+                          <div>
+                            <span className="text-[#64748b]">createdAt: </span>
+                            <span className="text-[#94a3b8]">{new Date(evt.createdAt).toISOString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* TAB 2: ORGANIZATIONS VIEW */}
+            {activeTab === 'organizations' && (
+              <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">
+                    Registered Organizations ({organizations.length})
+                  </span>
+                </div>
+
+                {organizations.length === 0 ? (
+                  <div className="bg-[#001e2b] border border-[#0a3b4e] rounded-lg p-12 text-center text-[#64748b] font-mono text-xs">
+                    No organizations created. Register one above to receive your secret-x-key.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {organizations.map((org) => {
+                      const orgId = org._id || org.id;
+                      const isVisible = showSecret[orgId];
+
+                      return (
+                        <div
+                          key={orgId}
+                          className="bg-[#001e2b] border border-[#0a3b4e] rounded-lg p-4 font-mono text-xs space-y-3"
+                        >
+                          <div className="flex items-center justify-between pb-2 border-b border-[#0a3b4e]">
+                            <h3 className="font-bold text-white text-sm">{org.name}</h3>
+                            <span className="text-[10px] bg-[#00ed64]/10 text-[#00ed64] px-1.5 py-0.5 rounded border border-[#00ed64]/30">
+                              ACTIVE
+                            </span>
+                          </div>
+
+                          {/* Secret Key Row */}
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-[11px] text-[#94a3b8]">
+                              <span>secret-x-key:</span>
+                              <button
+                                onClick={() => toggleSecret(orgId)}
+                                className="text-[#93c5fd] hover:underline cursor-pointer"
+                              >
+                                {isVisible ? 'Hide' : 'Show'}
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type={isVisible ? 'text' : 'password'}
+                                readOnly
+                                value={org.secretKey}
+                                className="w-full bg-[#021217] border border-[#0a3b4e] px-2.5 py-1.5 rounded text-[#00ed64] text-[11px]"
+                              />
+                              <button
+                                onClick={() => handleCopy(org.secretKey, `sec-${orgId}`)}
+                                className="px-2.5 py-1.5 bg-[#0a2733] hover:bg-[#0e3646] text-white border border-[#0f4356] rounded text-[11px] cursor-pointer whitespace-nowrap"
+                              >
+                                {copiedKey === `sec-${orgId}` ? '✓ Copied' : 'Copy'}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Ingest Endpoint */}
+                          <div className="space-y-1">
+                            <span className="text-[11px] text-[#94a3b8]">Ingestion API:</span>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                readOnly
+                                value="http://localhost:2000/api/events/ingest"
+                                className="w-full bg-[#021217] border border-[#0a3b4e] px-2.5 py-1.5 rounded text-[#93c5fd] text-[11px]"
+                              />
+                              <button
+                                onClick={() => handleCopy('http://localhost:2000/api/events/ingest', `url-${orgId}`)}
+                                className="px-2.5 py-1.5 bg-[#0a2733] hover:bg-[#0e3646] text-white border border-[#0f4356] rounded text-[11px] cursor-pointer whitespace-nowrap"
+                              >
+                                {copiedKey === `url-${orgId}` ? '✓ Copied' : 'Copy'}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="text-[11px] text-[#94a3b8] pt-1 border-t border-[#0a3b4e]">
+                            Forwarding Destination:{' '}
+                            <span className="text-white">
+                              {org.destinationUrl || 'Not configured'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Structured Payload Modal (MongoDB JSON Document Style) */}
+      {selectedPayload && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs font-mono">
+          <div className="relative w-full max-w-2xl bg-[#001e2b] border border-[#0a3b4e] rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="px-5 py-3 border-b border-[#0a3b4e] flex items-center justify-between bg-[#021217]">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#00ed64]"></span>
+                <span className="text-xs text-white font-bold">Document Payload</span>
+                <span className="text-[11px] text-[#64748b]">_id: {selectedPayload._id}</span>
               </div>
 
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleCopyModalPayload}
-                  className="text-xs px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition cursor-pointer flex items-center gap-1.5"
+                  className="text-xs px-2.5 py-1 bg-[#0a2733] hover:bg-[#0e3646] text-[#00ed64] rounded border border-[#0f4356] cursor-pointer"
                 >
                   {copiedModal ? '✓ Copied' : 'Copy JSON'}
                 </button>
                 <button
                   onClick={() => setSelectedPayload(null)}
-                  className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer"
+                  className="w-6 h-6 rounded bg-[#0a2733] text-[#94a3b8] hover:text-white flex items-center justify-center cursor-pointer text-xs"
                 >
                   ✕
                 </button>
               </div>
             </div>
 
-            {/* Modal Metadata strip */}
-            <div className="px-6 py-2.5 bg-slate-950/30 border-b border-slate-800/80 flex items-center gap-4 text-xs text-slate-400">
-              <span>
-                Status:{' '}
-                <strong
-                  className={`capitalize ${
-                    selectedPayload.status === 'completed'
-                      ? 'text-emerald-400'
-                      : selectedPayload.status === 'dead'
-                      ? 'text-purple-400'
-                      : selectedPayload.status === 'failed'
-                      ? 'text-red-400'
-                      : 'text-amber-400'
-                  }`}
-                >
-                  {selectedPayload.status}
-                </strong>
-              </span>
-              <span>
-                Attempts: <strong className="text-slate-200">{selectedPayload.attempts}</strong>
-              </span>
-              <span>
-                Timestamp:{' '}
-                <strong className="text-slate-200">
-                  {new Date(selectedPayload.createdAt).toLocaleString()}
-                </strong>
-              </span>
-            </div>
-
-            {/* Modal Body - Pretty JSON */}
-            <div className="p-6 overflow-y-auto flex-1 bg-slate-950/70 font-mono text-xs">
-              <pre className="text-emerald-400 leading-relaxed whitespace-pre-wrap select-all">
+            <div className="p-5 overflow-y-auto flex-1 bg-[#021217] text-xs">
+              <pre className="text-[#00ed64] leading-relaxed whitespace-pre-wrap select-all">
                 {JSON.stringify(selectedPayload.payload, null, 2)}
               </pre>
             </div>
 
-            {/* Modal Footer */}
-            <div className="px-6 py-3 border-t border-slate-800 flex justify-end bg-slate-950/40">
+            <div className="px-5 py-2.5 border-t border-[#0a3b4e] flex justify-end bg-[#021217]">
               <button
                 onClick={() => setSelectedPayload(null)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-xl transition cursor-pointer"
+                className="px-3 py-1 bg-[#0a2733] hover:bg-[#0e3646] text-white text-xs rounded border border-[#0f4356] cursor-pointer"
               >
                 Close
               </button>
