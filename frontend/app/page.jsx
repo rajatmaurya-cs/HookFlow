@@ -1,24 +1,20 @@
+
+
+
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
+import { Inter, Instrument_Serif, JetBrains_Mono } from 'next/font/google';
 
-export default function LandingPage() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const [activeLang, setActiveLang] = useState('nodejs');
-  const [copied, setCopied] = useState(false);
+const sans = Inter({ subsets: ['latin'], variable: '--font-sans', display: 'swap' });
+const serif = Instrument_Serif({ subsets: ['latin'], weight: '400', style: ['normal', 'italic'], variable: '--font-display', display: 'swap' });
+const mono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono', display: 'swap' });
 
-  useEffect(() => {
-    setMounted(true);
-    const token = localStorage.getItem('accessToken');
-    if (token) {
-      setIsLoggedIn(true);
-    }
-  }, []);
+/* ---------------------------------- data ---------------------------------- */
 
-  const codeSnippets = {
-    nodejs: `// Node.js (Fetch API / Node 18+)
+const CODE_SNIPPETS = {
+  nodejs: `// Node.js (Fetch API / Node 18+)
 const crypto = require('crypto');
 
 const secretKey = 'sec_your_organization_key';
@@ -45,7 +41,7 @@ const response = await fetch('http://localhost:2000/api/events/ingest', {
 const data = await response.json();
 console.log('HookFlow Response:', data);`,
 
-    python: `# Python 3 (Requests)
+  python: `# Python 3 (Requests)
 import uuid
 import requests
 
@@ -73,7 +69,7 @@ payload = {
 response = requests.post(url, json=payload, headers=headers)
 print("HookFlow Response:", response.json())`,
 
-    java: `// Java 11+ (HttpClient)
+  java: `// Java 11+ (HttpClient)
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -84,7 +80,7 @@ public class HookFlowSender {
     public static void main(String[] args) throws Exception {
         String secretKey = "sec_your_organization_key";
         String idempotencyKey = UUID.randomUUID().toString(); // Unique key
-        
+
         String jsonPayload = """
             {
               "userId": "usr_6af0b7db7b540b7b50",
@@ -106,466 +102,646 @@ public class HookFlowSender {
             .build();
 
         HttpResponse<String> response = client.send(
-            request, 
+            request,
             HttpResponse.BodyHandlers.ofString()
         );
         System.out.println("Status: " + response.statusCode());
         System.out.println("HookFlow Response: " + response.body());
     }
 }`,
+};
+
+const TABS = [
+  { id: 'nodejs', file: 'send-event.js', badge: 'JS', color: '#68a063', label: 'JavaScript' },
+  { id: 'python', file: 'send_event.py', badge: 'PY', color: '#3572A5', label: 'Python' },
+  { id: 'java', file: 'HookFlowSender.java', badge: '☕', color: '#b07219', label: 'Java' },
+];
+
+const PIPELINE = [
+  { label: 'SOURCE', sub: 'your app', dot: 'bg-[#191817]/40', ping: false },
+  { label: 'INGEST', sub: 'POST /events', dot: 'bg-[#191817]/40', ping: false },
+  { label: 'REDIS', sub: 'SET NX EX 300', dot: 'bg-emerald-500', ping: true },
+  { label: 'QUEUE', sub: 'durable', dot: 'bg-[#191817]/40', ping: false },
+  { label: 'RELAY', sub: 'backoff ↻', dot: 'bg-amber-500', ping: false },
+  { label: 'ENDPOINT', sub: '200 OK', dot: 'bg-[#B08D4C]', ping: true },
+];
+
+const FEED = [
+  { id: 'evt_9f3ac1', msg: 'payment.completed → relay → endpoint', status: '200 OK · 38ms', tone: 'text-emerald-400' },
+  { id: 'evt_9f3ac1', msg: 'duplicate intercepted at Redis NX', status: 'DEDUPED · <1ms', tone: 'text-[#B08D4C]' },
+  { id: 'evt_b77e02', msg: 'invoice.issued → relay → endpoint', status: '200 OK · 61ms', tone: 'text-emerald-400' },
+  { id: 'evt_c21d90', msg: 'endpoint timeout → backoff scheduled', status: 'RETRY #2 · 10s', tone: 'text-amber-400' },
+  { id: 'evt_d40aa7', msg: 'user.created → relay → endpoint', status: '200 OK · 44ms', tone: 'text-emerald-400' },
+  { id: 'evt_e58b13', msg: 'signature verified · org key matched', status: 'ACCEPTED · 202', tone: 'text-emerald-400' },
+];
+
+const MARQUEE = [
+  'AT-LEAST-ONCE DELIVERY', 'REDIS SET NX EX 300', 'ORG-SCOPED SECRET KEYS', 'EXPONENTIAL BACKOFF',
+  'DEAD-LETTER RECOVERY', 'IDEMPOTENCY-KEY', '202 ACCEPTED', 'ZERO DUPLICATES',
+];
+
+const STATS = [
+  { v: '<2ms', l: 'DEDUPE CHECK' },
+  { v: '300s', l: 'IDEMPOTENCY TTL' },
+  { v: '5s', l: 'RELAY POLL' },
+  { v: '0', l: 'DUPLICATES DELIVERED' },
+];
+
+/* ----------------------------- syntax tokenizer ---------------------------- */
+
+const TOKEN_RE =
+  /("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|(\/\/[^\n]*|#[^\n]*)|\b(import|from|await|async|return|throws|def)\b|\b(const|let|var|new|public|private|class|static|void)\b|\b(\d+(?:\.\d+)?)\b|\b([A-Z][A-Za-z0-9_]*)\b|([A-Za-z_$][\w$]*)(?=\s*\()|([A-Za-z_$][\w$]*)(?=\s*:)/g;
+
+const COLORS = ['#ce9178', '#6a9955', '#c586c0', '#569cd6', '#b5cea8', '#4ec9b0', '#dcdcaa', '#9cdcfe'];
+
+function tokenize(line) {
+  const out = [];
+  let last = 0;
+  let m;
+  TOKEN_RE.lastIndex = 0;
+  while ((m = TOKEN_RE.exec(line))) {
+    if (m.index > last) out.push({ text: line.slice(last, m.index), color: '#d4d4d4' });
+    const gi = m.slice(1).findIndex((g) => g !== undefined);
+    out.push({ text: m[0], color: COLORS[gi] ?? '#d4d4d4' });
+    last = m.index + m[0].length;
+  }
+  if (last < line.length) out.push({ text: line.slice(last), color: '#d4d4d4' });
+  return out;
+}
+
+function buildLines(code, lang) {
+  let inTextBlock = false;
+  return code.split('\n').map((line) => {
+    let tokens;
+    if (lang === 'java' && inTextBlock) {
+      tokens = [{ text: line, color: '#ce9178' }];
+      if (line.includes('"""')) inTextBlock = false;
+    } else if (lang === 'java' && line.includes('"""')) {
+      const i = line.indexOf('"""');
+      tokens = [...tokenize(line.slice(0, i)), { text: line.slice(i), color: '#ce9178' }];
+      inTextBlock = true;
+    } else {
+      tokens = tokenize(line);
+    }
+    const t = line.trim();
+    const isComment = t.startsWith('//') || t.startsWith('#');
+    const low = line.toLowerCase();
+    const hl = !isComment && (low.includes('idempotency-key') || low.includes('idempotency_key'));
+    const hl2 = !isComment && !hl && low.includes('secret-x-key');
+    return { tokens, cls: hl ? 'hf-hl' : hl2 ? 'hf-hl2' : '' };
+  });
+}
+
+/* --------------------------------- styles ---------------------------------- */
+
+const PAGE_CSS = `
+.hf-root{font-family:var(--font-sans),ui-sans-serif,system-ui,sans-serif;}
+.hf-display{font-family:var(--font-display),Georgia,'Times New Roman',serif;}
+.hf-mono{font-family:var(--font-mono),ui-monospace,SFMono-Regular,Menlo,monospace;}
+html{scroll-behavior:smooth;}
+.hf-grain{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");}
+.hf-dotgrid{background-image:radial-gradient(rgba(25,24,23,0.13) 1px,transparent 1px);background-size:22px 22px;-webkit-mask-image:radial-gradient(ellipse 90% 70% at 50% 0%,black 25%,transparent 78%);mask-image:radial-gradient(ellipse 90% 70% at 50% 0%,black 25%,transparent 78%);}
+@keyframes hf-rise{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:none}}
+.hf-rise{animation:hf-rise .9s cubic-bezier(.16,1,.3,1) both;}
+[data-reveal]{opacity:0;transform:translateY(30px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1);}
+[data-reveal].is-in{opacity:1;transform:none;}
+@keyframes hf-marquee{to{transform:translateX(-50%)}}
+.hf-marquee{animation:hf-marquee 30s linear infinite;}
+.hf-marquee-wrap:hover .hf-marquee{animation-play-state:paused;}
+@keyframes hf-dash{to{background-position:10px 0}}
+.hf-connector{height:1px;min-width:24px;background:repeating-linear-gradient(90deg,rgba(25,24,23,.35) 0 5px,transparent 5px 10px);animation:hf-dash .5s linear infinite;}
+@keyframes hf-travel{0%{left:0%;opacity:0}6%{opacity:1}94%{opacity:1}100%{left:100%;opacity:0}}
+.hf-travel-dot{position:absolute;top:50%;width:7px;height:7px;margin-top:-3.5px;border-radius:9999px;background:#8A6D3B;box-shadow:0 0 10px rgba(176,141,76,.8);animation:hf-travel 5s ease-in-out infinite;z-index:0;}
+@keyframes hf-blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+.hf-caret{animation:hf-blink 1.1s steps(1) infinite;}
+@keyframes hf-feed{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.hf-feed{animation:hf-feed .45s ease both;}
+@keyframes hf-draw{to{stroke-dashoffset:0}}
+.hf-draw{stroke-dasharray:320;stroke-dashoffset:320;animation:hf-draw 1.4s .5s cubic-bezier(.16,1,.3,1) forwards;}
+.hf-btn{position:relative;overflow:hidden;}
+.hf-btn::after{content:'';position:absolute;inset:0;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.28) 50%,transparent 60%);transform:translateX(-130%);transition:transform .7s ease;}
+.hf-btn:hover::after{transform:translateX(130%);}
+.hf-card::before,.hf-card::after{font-family:var(--font-mono),monospace;position:absolute;color:rgba(25,24,23,.2);font-size:13px;line-height:1;transition:color .4s;content:'+';}
+.hf-card::before{top:8px;left:10px;}
+.hf-card::after{bottom:8px;right:10px;}
+.hf-card:hover::before,.hf-card:hover::after{color:#B08D4C;}
+.hf-ln{display:inline-block;width:2.4rem;margin-right:1.2rem;text-align:right;color:#85888e;opacity:.5;user-select:none;}
+.hf-hl{background:rgba(0,122,204,.16);box-shadow:inset 2px 0 0 #007acc;}
+.hf-hl2{background:rgba(255,255,255,.045);}
+.hf-scroll::-webkit-scrollbar{width:9px;height:9px;}
+.hf-scroll::-webkit-scrollbar-track{background:transparent;}
+.hf-scroll::-webkit-scrollbar-thumb{background:#3c3c3c;border-radius:9999px;border:2px solid #1e1e1e;}
+.hf-scroll::-webkit-scrollbar-thumb:hover{background:#4a4a4a;}
+.hf-root a:focus-visible,.hf-root button:focus-visible{outline:2px solid #B08D4C;outline-offset:3px;border-radius:2px;}
+@media (prefers-reduced-motion:reduce){
+  .hf-rise,.hf-marquee,.hf-connector,.hf-travel-dot,.hf-caret,.hf-feed,.hf-draw{animation:none !important;}
+  .hf-draw{stroke-dashoffset:0;}
+  [data-reveal]{opacity:1 !important;transform:none !important;transition:none !important;}
+  .hf-btn::after{display:none;}
+  html{scroll-behavior:auto;}
+}
+`;
+
+/* -------------------------------- components ------------------------------- */
+
+const Arrow = ({ className = '' }) => (
+  <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+    <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+export default function LandingPage() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [activeLang, setActiveLang] = useState('nodejs');
+  const [copied, setCopied] = useState(false);
+  const [feedIdx, setFeedIdx] = useState(0);
+  const copyTimer = useRef(null);
+
+  useEffect(() => {
+    setMounted(true);
+    if (localStorage.getItem('accessToken')) setIsLoggedIn(true);
+
+    const els = Array.from(document.querySelectorAll('[data-reveal]'));
+    if (!('IntersectionObserver' in window)) {
+      els.forEach((el) => el.classList.add('is-in'));
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => entries.forEach((en) => {
+        if (en.isIntersecting) { en.target.classList.add('is-in'); io.unobserve(en.target); }
+      }),
+      { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
+    );
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const t = setInterval(() => setFeedIdx((i) => (i + 1) % FEED.length), 2600);
+    return () => clearInterval(t);
+  }, []);
+
+  const lines = useMemo(() => buildLines(CODE_SNIPPETS[activeLang], activeLang), [activeLang]);
+  const feed = FEED[feedIdx];
+
+  const handleCopyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(CODE_SNIPPETS[activeLang]);
+      setCopied(true);
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+      copyTimer.current = setTimeout(() => setCopied(false), 2000);
+    } catch { /* clipboard unavailable */ }
   };
 
-  const handleCopyCode = () => {
-    navigator.clipboard.writeText(codeSnippets[activeLang]);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const ctaHref = mounted && isLoggedIn ? '/dashboard' : '/register';
+  const ctaLabel = mounted && isLoggedIn ? 'OPEN DASHBOARD' : 'START FREE INTEGRATION';
 
   return (
-    <div className="min-h-screen bg-[#FAF7F0] text-[#1C1917] font-sans antialiased flex flex-col overflow-x-hidden selection:bg-[#C9A86A] selection:text-black">
-      <style jsx global>{`
-        .font-display { font-family: 'Playfair Display', Georgia, 'Times New Roman', serif; }
-        .font-mono-classic { font-family: 'JetBrains Mono', ui-monospace, monospace; }
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes shimmer { 0% { transform: translateX(-120%) skewX(-12deg); } 100% { transform: translateX(240%) skewX(-12deg); } }
-        @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-        @keyframes floatSlow { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-        .animate-fadeUp { animation: fadeUp 0.9s cubic-bezier(0.22,1,0.36,1) both; }
-        .animate-fadeUp-1 { animation-delay: 0.08s; }
-        .animate-fadeUp-2 { animation-delay: 0.18s; }
-        .animate-fadeUp-3 { animation-delay: 0.28s; }
-        .animate-fadeUp-4 { animation-delay: 0.38s; }
-        .btn-shine { position: relative; overflow: hidden; }
-        .btn-shine:after { content: ''; position: absolute; top: 0; left: 0; width: 45%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent); animation: shimmer 3.2s infinite; }
-        .marquee-track { animation: marquee 28s linear infinite; }
-        .paper-grid {
-          background-image: linear-gradient(to right, rgba(28,25,23,0.045) 1px, transparent 1px), linear-gradient(to bottom, rgba(28,25,23,0.045) 1px, transparent 1px);
-          background-size: 56px 56px;
-          mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 30%, transparent 75%);
-        }
-        .gold-line { background: linear-gradient(90deg, transparent, #C9A86A 30%, #C9A86A 70%, transparent); height: 1px; }
-        .card-classic { transition: all 0.45s cubic-bezier(0.22,1,0.36,1); }
-        .card-classic:hover { transform: translateY(-6px); border-color: #1C1917; box-shadow: 0 24px 48px -18px rgba(28,25,23,0.22), 0 2px 0 #C9A86A inset; }
-        .card-classic:hover .card-num { color: #C9A86A; }
-        .card-classic:hover .card-icon { background: #C9A86A; color: #111; transform: rotate(-4deg) scale(1.05); }
-        .card-icon { transition: all 0.4s ease; }
-        .card-num { transition: color 0.4s ease; }
-        .tab-active { box-shadow: 0 -2px 0 #C9A86A inset; }
-        ::-webkit-scrollbar { height: 6px; width: 8px; }
-        ::-webkit-scrollbar-thumb { background: #D6C9A8; border-radius: 99px; }
-      `}</style>
+    <div
+      id="top"
+      className={`${sans.variable} ${serif.variable} ${mono.variable} hf-root min-h-screen bg-[#F5F4EF] text-[#191817] antialiased flex flex-col selection:bg-[#191817] selection:text-[#F5F4EF]`}
+    >
+      <style>{PAGE_CSS}</style>
 
-      {/* Ambient background */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute inset-0 paper-grid" />
-        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w- h- bg-[#E9D9A6]/35 blur- rounded-full" />
-        <div className="absolute top- -left-40 w- h- bg-[#C9A86A]/10 blur- rounded-full" />
-        <div className="absolute top- -right-40 w- h- bg-black/[0.04] blur- rounded-full" />
+      {/* Film grain over everything */}
+      <div aria-hidden="true" className="hf-grain fixed inset-0 z-[70] pointer-events-none opacity-[0.05]" />
+
+      {/* Status micro-bar */}
+      <div className="w-full bg-[#141311] text-[#F5F4EF]/70">
+        <div className="max-w-6xl mx-auto px-6 h-8 flex items-center justify-between hf-mono text-[9px] tracking-[0.25em] uppercase">
+          <span className="flex items-center gap-2">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+            </span>
+            All systems operational
+          </span>
+          <span className="hidden sm:inline text-[#F5F4EF]/40">Redis connected · TTL 300s · Poll 5s</span>
+        </div>
       </div>
 
-      {/* Top Navbar */}
-    <header className="sticky top-0 z-50 w-full border-b border-[#E8DFC8] bg-[#FAF7F0]">
-  <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-
-    {/* LEFT - Logo */}
-    <Link href="/" className="flex items-center gap-3">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-black text-white text-lg font-bold">
-        H
-      </span>
-      <span className="flex flex-col leading-none">
-        <span className="text-xl font-bold text-black leading-none">HookFlow</span>
-        <span className="mt-1 text- font-semibold tracking-[0.25em] text-[#8A7A52] leading-none">
-          RELIABILITY INFRA
-        </span>
-      </span>
-    </Link>
-
-    {/* CENTER - Nav */}
-    <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-[#57534E]">
-      <a href="#features" className="hover:text-black">Features</a>
-      <a href="#pipeline" className="hover:text-black">Pipeline</a>
-      <a href="#quickstart" className="hover:text-black">Quickstart</a>
-      <span className="hidden lg:flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-        ALL SYSTEMS LIVE
-      </span>
-    </nav>
-
-    {/* RIGHT - Button */}
-    <div className="flex items-center gap-3">
-      {mounted && isLoggedIn ? (
-        <Link
-          href="/dashboard"
-          className="flex h-10 items-center justify-center rounded-full bg-black px-5 text-sm font-semibold text-white"
-        >
-          Dashboard →
-        </Link>
-      ) : (
-        <>
-          <Link href="/login" className="hidden sm:block text-sm font-semibold text-[#44403C] hover:text-black">
-            Sign In
+      {/* Navbar */}
+      <header className="w-full border-b border-[#191817]/10 bg-[#F5F4EF]/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-3 group">
+            <span className="relative w-8 h-8 rounded-[6px] bg-[#191817] text-[#F5F4EF] flex items-center justify-center hf-display text-lg shadow-sm">
+              H
+              <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-[#B08D4C]" />
+            </span>
+            <span className="hf-display text-[22px] tracking-tight">HookFlow</span>
+            <span className="hidden sm:inline hf-mono text-[8px] tracking-[0.2em] uppercase border border-[#191817]/15 rounded-full px-2 py-0.5 text-[#191817]/50">v1.0</span>
           </Link>
-          <Link
-            href="/register"
-            className="flex h-10 items-center justify-center rounded-full bg-black px-5 text-sm font-semibold text-white"
-          >
-            Get Started →
-          </Link>
-        </>
-      )}
-    </div>
 
-  </div>
-</header>
+          <nav aria-label="Primary" className="hidden md:flex items-center gap-7 hf-mono text-[10px] tracking-[0.25em] uppercase text-[#191817]/60">
+            {[['Capabilities', '#capabilities'], ['The Wire', '#wire'], ['Quickstart', '#quickstart']].map(([label, href]) => (
+              <a key={href} href={href} className="relative hover:text-[#191817] transition-colors after:absolute after:left-0 after:-bottom-1 after:h-px after:w-0 after:bg-[#B08D4C] after:transition-all hover:after:w-full">
+                {label}
+              </a>
+            ))}
+          </nav>
 
-      {/* Hero Section */}
-      <main className="relative z-10 max-w-6xl mx-auto px-6 pt-14 sm:pt-20 pb-20 flex-1 flex flex-col items-center w-full">
-        {/* Hero Badge */}
-        <div className="animate-fadeUp inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white border border-[#E8DFC8] text- font-semibold text-[#57534E] shadow-[0_8px_24px_rgba(0,0,0,0.06)] mb-8 tracking-[0.14em] uppercase">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
-          </span>
-          Webhook Ingestion &amp; Relay Engine
-          <span className="w-px h-3 bg-[#E8DFC8]" />
-          <span className="text-black font-mono-classic text- tracking-normal font-bold">v1.0 READY</span>
-          <span className="hidden sm:inline-flex items-center gap-1 bg-[#FFF8E6] text-[#8A6A1F] border border-[#F0E2B0] px-2 py-0.5 rounded-full normal-case tracking-normal">★ Classic Edition</span>
-        </div>
-
-        {/* Hero Title */}
-        <div className="text-center max-w-5xl mx-auto space-y-6">
-          <p className="animate-fadeUp animate-fadeUp-1 text- sm:text-xs tracking-[0.32em] font-semibold text-[#A68B3A]">— ENGINEERED FOR HIGH RELIABILITY —</p>
-          <h1 className="animate-fadeUp animate-fadeUp-2 font-display text- sm:text- md:text- font-black text-[#111010] tracking-[-0.04em] leading-[0.92]">
-            Never miss an<br />
-            <span className="italic font-medium text-transparent bg-clip-text bg-gradient-to-r from-[#8A6A1F] via-[#C9A86A] to-[#8A6A1F]">Event</span> Again<span className="text-[#C9A86A]">.</span>
-          </h1>
-
-          <p className="animate-fadeUp animate-fadeUp-3 text- sm:text-base md:text- text-[#57534E] max-w-2xl mx-auto leading-relaxed text-balance pt-1">
-            A resilient dispatch pipeline for high-reliability webhook delivery. Instant duplicate interception with Redis, cryptographically secured organization keys, and an automated background dispatch engine.
-          </p>
-
-          <div className="animate-fadeUp animate-fadeUp-4 flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+          <div className="flex items-center gap-4">
             {mounted && isLoggedIn ? (
-              <Link href="/dashboard" className="btn-shine group inline-flex items-center gap-2 px-8 py-4 bg-[#111010] hover:bg-black text-white font-semibold text-sm rounded-full transition-all duration-300 shadow-[0_16px_32px_rgba(0,0,0,0.22)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.28)] hover:-translate-y-0.5">
-                <span>Open Dashboard</span><span className="transition-transform group-hover:translate-x-1">→</span>
+              <Link href="/dashboard" className="hf-btn inline-flex items-center gap-2 px-5 py-2.5 bg-[#191817] hover:bg-[#2a2823] text-[#F5F4EF] hf-mono text-[10px] tracking-[0.2em] uppercase rounded-[4px] transition-colors">
+                Dashboard <Arrow />
               </Link>
             ) : (
-              <Link href="/register" className="btn-shine group inline-flex items-center gap-2 px-8 py-4 bg-[#111010] hover:bg-black text-white font-semibold text-sm rounded-full transition-all duration-300 shadow-[0_16px_32px_rgba(0,0,0,0.22)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.28)] hover:-translate-y-0.5">
-                <span>Start Free Integration</span><span className="transition-transform group-hover:translate-x-1">→</span>
-              </Link>
+              <>
+                <Link href="/login" className="hf-mono text-[10px] tracking-[0.2em] uppercase text-[#191817]/60 hover:text-[#191817] transition-colors px-2 py-2">
+                  Sign In
+                </Link>
+                <Link href="/register" className="hf-btn inline-flex items-center gap-2 px-5 py-2.5 bg-[#191817] hover:bg-[#2a2823] text-[#F5F4EF] hf-mono text-[10px] tracking-[0.2em] uppercase rounded-[4px] transition-colors">
+                  Get Started <Arrow />
+                </Link>
+              </>
             )}
-            <a href="#quickstart" className="inline-flex items-center gap-2 px-7 py-4 bg-white border border-[#1C1917] text-[#111010] font-semibold text-sm rounded-full hover:bg-[#111010] hover:text-white transition-all duration-300 hover:-translate-y-0.5 shadow-sm">
-              <span className="w-5 h-5 rounded-full bg-[#C9A86A] text-black flex items-center justify-center text-">▶</span>
-              View Quickstart
-            </a>
-          </div>
-
-          <p className="text- text-[#A8A29E] font-mono-classic pt-1">No credit card required &nbsp;•&nbsp; Setup in 2 minutes &nbsp;•&nbsp; Production ready</p>
-        </div>
-
-        {/* Stats Bar */}
-        <div className="mt-14 w-full max-w-4xl bg-white/80 backdrop-blur border border-[#E8DFC8] rounded-2xl shadow-[0_12px_32px_rgba(0,0,0,0.06)] grid grid-cols-2 md:grid-cols-4 divide-x divide-[#F0E9D6] overflow-hidden animate-fadeUp animate-fadeUp-4">
-          {[
-            { v: '99.99%', l: 'Delivery Rate' },
-            { v: '< 2ms', l: 'Dedupe Check' },
-            { v: '300s', l: 'Redis TTL' },
-            { v: '5s', l: 'Auto Polling' },
-          ].map((s) => (
-            <div key={s.l} className="py-5 px-4 text-center">
-              <div className="font-display text-2xl font-bold text-black">{s.v}</div>
-              <div className="text- tracking-[0.18em] font-semibold text-[#A8A29E] mt-1 uppercase">{s.l}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Marquee */}
-        <div className="mt-10 w-full overflow-hidden opacity-60 [mask-image:linear-gradient(to_right,transparent,black_15%,black_85%,transparent)]">
-          <div className="marquee-track flex whitespace-nowrap gap-10 w-max text- tracking-[0.28em] font-semibold text-[#78716C]">
-            {['PAYMENTS', '◆', 'SAAS APPS', '◆', 'E-COMMERCE', '◆', 'FINTECH', '◆', 'NOTIFICATIONS', '◆', 'AUTOMATION', '◆', 'PAYMENTS', '◆', 'SAAS APPS', '◆', 'E-COMMERCE', '◆', 'FINTECH', '◆', 'NOTIFICATIONS', '◆', 'AUTOMATION', '◆'].map((t, i) => (
-              <span key={i} className={t === '◆' ? 'text-[#C9A86A]' : ''}>{t}</span>
-            ))}
           </div>
         </div>
+      </header>
 
-        {/* Cards */}
-        <section id="features" className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16 w-full">
-          <div className="card-classic relative bg-white border border-[#E8DFC8] rounded- p-7 sm:p-8 shadow-[0_10px_30px_rgba(0,0,0,0.04)] flex flex-col justify-between overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h- bg-gradient-to-r from-transparent via-[#C9A86A] to-transparent" />
-            <div>
-              <div className="flex items-start justify-between mb-6">
-                <div className="card-icon w-12 h-12 rounded- bg-[#111010] text-white flex items-center justify-center shadow-lg"><svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                </div>
-                <span className="card-num font-display text- leading-none font-bold text-[#EDE6D0]">01</span>
-              </div>
-              <span className="text- font-mono-classic font-semibold uppercase tracking-wider text-[#8A6A1F] bg-[#FFF8E6] border border-[#F0E2B0] px-2.5 py-1 rounded-full">&lt; 2ms latency</span>
-              <h2 className="font-display text- font-bold text-black mt-4 mb-2.5 tracking-tight">Redis Idempotency</h2>
-              <p className="text-[13.5px] text-[#57534E] leading-relaxed">Atomic caching layer that intercepts duplicate requests and rapid repeated clicks at microsecond speeds. Payload hashes ensure duplicate events are caught without database overhead.</p>
-            </div>
-            <div className="mt-7 pt-4 border-t border-dashed border-[#E8DFC8] flex items-center gap-2 text- font-mono-classic text-[#44403C]">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span><span>SET idemp:key EX 300 NX</span>
-            </div>
+      <main className="flex-1">
+        {/* ------------------------------- HERO ------------------------------- */}
+        <section className="relative -mt-12 max-w-6xl mx-auto px-6 pt-16 sm:pt-24 pb-8 flex flex-col items-center text-center">
+          <div aria-hidden="true" className="hf-dotgrid absolute inset-0 pointer-events-none" />
+          <div aria-hidden="true" className="absolute -top-32 left-1/2 -translate-x-1/2 w-[900px] h-[480px] rounded-full bg-[#B08D4C]/10 blur-[110px] pointer-events-none" />
+          <span aria-hidden="true" className="hidden lg:block absolute top-2 left-6 hf-mono text-[#191817]/25 select-none">+</span>
+          <span aria-hidden="true" className="hidden lg:block absolute top-2 right-6 hf-mono text-[#191817]/25 select-none">+</span>
+          <span aria-hidden="true" className="hidden xl:block absolute -left-14 top-28 [writing-mode:vertical-rl] rotate-180 hf-mono text-[9px] tracking-[0.45em] uppercase text-[#191817]/30 select-none">
+            Reliability infrastructure — est. 2026
+          </span>
+          <span aria-hidden="true" className="hidden xl:block absolute -right-14 top-28 [writing-mode:vertical-rl] hf-mono text-[9px] tracking-[0.45em] uppercase text-[#191817]/30 select-none">
+            Ingest ✦ Dedupe ✦ Relay ✦ Deliver
+          </span>
+
+          <div className="hf-rise relative inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-white/80 backdrop-blur border border-[#191817]/10 hf-mono text-[9px] sm:text-[10px] font-medium tracking-[0.25em] uppercase text-[#191817]/70 shadow-[0_2px_8px_rgba(25,24,23,0.04)] mb-9">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
+            Webhook Ingestion &amp; Relay Engine
+            <span className="text-[#191817]/20">|</span>
+            <span className="text-[#8A6D3B]">v1.0 Ready</span>
           </div>
 
-          <div className="card-classic relative bg-[#111010] text-[#F5EFE2] border border-[#111010] rounded- p-7 sm:p-8 shadow-[0_20px_40px_rgba(0,0,0,0.22)] flex flex-col justify-between overflow-hidden md:-translate-y-2">
-            <div className="absolute top-0 left-0 right-0 h- bg-[#C9A86A]" />
-            <div className="absolute -right-10 -top-10 w-40 h-40 bg-[#C9A86A]/20 blur-3xl rounded-full" />
-            <div>
-              <div className="flex items-start justify-between mb-6">
-                <div className="card-icon w-12 h-12 rounded- bg-[#C9A86A] text-black flex items-center justify-center shadow-lg"><svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002-2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                </div>
-                <span className="card-num font-display text- leading-none font-bold text-white/15">02</span>
-              </div>
-              <span className="text- font-mono-classic font-semibold uppercase tracking-wider text-[#F5EFE2] bg-white/10 border border-white/15 px-2.5 py-1 rounded-full">sec_••••••</span>
-              <h2 className="font-display text- font-bold text-white mt-4 mb-2.5 tracking-tight">Secret Key Verification</h2>
-              <p className="text-[13.5px] text-[#D6D0BE] leading-relaxed">Each organization receives an isolated, unforgeable secret key (<code className="font-mono-classic text-xs px-1.5 py-0.5 bg-white/10 text-white rounded">secret-x-key</code>). Incoming data is authenticated and validated before hitting processing queues.</p>
-            </div>
-            <div className="mt-7 pt-4 border-t border-dashed border-white/15 flex items-center gap-2 text- font-mono-classic text-[#EDE6D0]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#C9A86A]"></span><span>HMAC isolation per organization</span>
-            </div>
+          <h1 className="hf-rise relative hf-display text-[15vw] sm:text-7xl md:text-8xl leading-[0.98] tracking-[-0.01em] max-w-4xl" style={{ animationDelay: '0.08s' }}>
+            Never miss an<br className="hidden sm:block" />{' '}
+            <span className="relative inline-block italic text-[#8A6D3B] px-1">
+              event
+              <svg className="absolute left-0 -bottom-1 sm:-bottom-2 w-full h-[12px] sm:h-[14px]" viewBox="0 0 240 14" preserveAspectRatio="none" fill="none" aria-hidden="true">
+                <path className="hf-draw" d="M3 10 C 40 3, 75 13, 115 7 C 150 2, 185 12, 237 5" stroke="#B08D4C" strokeWidth="2.5" strokeLinecap="round" />
+              </svg>
+            </span>{' '}
+            again.
+          </h1>
+
+          <div className="hf-rise relative flex flex-col sm:flex-row items-center justify-center gap-3 pt-9" style={{ animationDelay: '0.24s' }}>
+  <Link href={ctaHref} className="hf-btn group inline-flex items-center gap-3 px-8 py-4 bg-[#191817] hover:bg-[#2a2823] text-[#F5F4EF] hf-mono text- tracking-[0.2em] uppercase rounded- transition-all duration-200 shadow-[0_10px_28px_-10px_rgba(25,24,23,0.5)] hover:-translate-y-0.5">
+    {ctaLabel}
+    <Arrow className="transition-transform group-hover:translate-x-1" />
+  </Link>
+
+  <a href="#quickstart" className="group inline-flex items-center gap-3 px-8 py-4 border border-[#191817]/20 hover:border-[#191817] text-[#191817] hf-mono text- tracking-[0.2em] uppercase rounded- transition-colors bg-white/60">
+    <span
+      className="flex h-6 w-6 items-center justify-center rounded-full transition-all duration-200"
+      style={{ border: '1px solid #D4AF37', backgroundColor: 'rgba(212,175,55,0.12)', color: '#D4AF37' }}
+    >
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="#D4AF37" aria-hidden="true">
+        <path d="M8 5.14v13.72c0 .8.87 1.3 1.56.88l10.5-6.86a1.03 1.03 0 0 0 0-1.76L9.56 4.26A1.03 1.03 0 0 0 8 5.14Z" />
+      </svg>
+    </span>
+    View Quickstart
+  </a>
+</div>
+
+          <div className="hf-rise relative flex flex-wrap items-center justify-center gap-x-4 gap-y-2 pt-9 hf-mono text-[9px] tracking-[0.3em] uppercase text-[#191817]/50" style={{ animationDelay: '0.32s' }}>
+            <span>{'<2ms dedupe'}</span><span className="text-[#B08D4C]">✦</span>
+            <span>Exponential backoff</span><span className="text-[#B08D4C]">✦</span>
+            <span>Org-scoped keys</span>
+          </div>
+        </section>
+
+        {/* ----------------------------- THE WIRE ----------------------------- */}
+        <section id="wire" className="max-w-6xl mx-auto px-6 w-full scroll-mt-28" data-reveal>
+          <div className="flex items-center justify-between mb-4">
+            <p className="hf-mono text-[10px] tracking-[0.35em] uppercase text-[#191817]/60 flex items-center gap-2.5">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+              </span>
+              The Wire — Live Pipeline
+            </p>
+            <p className="hidden sm:block hf-mono text-[10px] tracking-[0.25em] uppercase text-[#191817]/40">Poll 5s · TTL 300s</p>
           </div>
 
-          <div className="card-classic relative bg-white border border-[#E8DFC8] rounded- p-7 sm:p-8 shadow-[0_10px_30px_rgba(0,0,0,0.04)] flex flex-col justify-between overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h- bg-gradient-to-r from-transparent via-[#C9A86A] to-transparent" />
-            <div>
-              <div className="flex items-start justify-between mb-6">
-                <div className="card-icon w-12 h-12 rounded- bg-[#111010] text-white flex items-center justify-center shadow-lg"><svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                </div>
-                <span className="card-num font-display text- leading-none font-bold text-[#EDE6D0]">03</span>
+          <div className="bg-white border border-[#191817]/10 rounded-lg p-5 sm:p-6 shadow-[0_4px_20px_rgba(25,24,23,0.04)]">
+            <div className="overflow-x-auto pb-1">
+              <div className="relative flex items-center min-w-[680px] px-1">
+                <span aria-hidden="true" className="hf-travel-dot" />
+                {PIPELINE.map((node, i) => (
+                  <div key={node.label} className="contents">
+                    {i > 0 && <div aria-hidden="true" className="hf-connector flex-1" />}
+                    <div className="relative z-10 flex flex-col items-center gap-1 bg-[#F5F4EF] border border-[#191817]/15 rounded-md px-3 py-2 min-w-[96px]">
+                      <span className="flex items-center gap-1.5 hf-mono text-[9px] tracking-[0.2em] text-[#191817]">
+                        <span className="relative flex h-1.5 w-1.5">
+                          {node.ping && <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${node.dot} opacity-60`} />}
+                          <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${node.dot}`} />
+                        </span>
+                        {node.label}
+                      </span>
+                      <span className="hf-mono text-[9px] text-[#191817]/50">{node.sub}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <span className="text- font-mono-classic font-semibold uppercase tracking-wider text-[#8A6A1F] bg-[#FFF8E6] border border-[#F0E2B0] px-2.5 py-1 rounded-full">5s auto-poll</span>
-              <h2 className="font-display text- font-bold text-black mt-4 mb-2.5 tracking-tight">Automated Relay &amp; Backoff</h2>
-              <p className="text-[13.5px] text-[#57534E] leading-relaxed">Background polling monitors pending events continuously. If target destination endpoints fail or timeout, exponential backoff retries preserve your event lifecycle until manual recovery.</p>
             </div>
-            <div className="mt-7 pt-4 border-t border-dashed border-[#E8DFC8] flex items-center gap-2 text- font-mono-classic text-[#44403C]">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span><span>Dead-letter circuit breaker</span>
+
+            <div className="mt-5 flex items-center justify-between gap-3 rounded-md bg-[#141311] px-4 py-3 border border-[#191817]">
+              <div key={feedIdx} className="hf-feed flex items-center gap-3 hf-mono text-[10.5px] min-w-0">
+                <span className="text-[#F5F4EF]/40 shrink-0">{feed.id}</span>
+                <span className="text-[#F5F4EF]/80 truncate">{feed.msg}</span>
+                <span className={`${feed.tone} shrink-0`}>{feed.status}</span>
+              </div>
+              <span className="flex items-center gap-2 hf-mono text-[9px] tracking-[0.25em] text-emerald-400 shrink-0">
+                <span className="hf-caret">▍</span>LIVE
+              </span>
             </div>
           </div>
         </section>
 
-        {/* Pipeline */}
-    <section id="pipeline" className="mt-16 w-full bg-[#111010] text-[#F5EFE2] rounded-3xl p-6 sm:p-8 relative overflow-hidden border border-[#2A2620] shadow-2xl">
-  <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[#C9A86A] to-transparent" />
-  <div className="absolute -top-24 right-0 w-72 h-72 bg-[#C9A86A]/15 blur-3xl rounded-full" />
+        {/* ------------------------------ MARQUEE ------------------------------ */}
+        <section aria-hidden="true" className="hf-marquee-wrap mt-16 border-y border-[#191817]/10 bg-white/40 py-4 overflow-hidden">
+          <div className="hf-marquee flex w-max">
+            {[0, 1].map((dup) => (
+              <div key={dup} className="flex items-center gap-10 pr-10 hf-mono text-[10px] tracking-[0.3em] uppercase text-[#191817]/60 whitespace-nowrap">
+                {MARQUEE.map((item) => (
+                  <span key={item} className="flex items-center gap-10">
+                    {item}<span className="text-[#B08D4C]">✦</span>
+                  </span>
+                ))}
+              </div>
+            ))}
+          </div>
+        </section>
 
-  <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 relative">
-    <div>
-      <p className="text-xs tracking-[0.28em] font-semibold text-[#C9A86A]">HOW IT FLOWS</p>
-      <h3 className="font-display text-3xl sm:text-4xl font-bold leading-tight mt-2">One event. Zero loss.<br /><span className="italic font-medium text-[#C9A86A]">Five precise steps.</span></h3>
-    </div>
-    <p className="text-sm text-[#B8B0A0] max-w-xs leading-relaxed">From your server to your destination, every event is verified, deduped, saved and retried.</p>
-  </div>
-
-  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-8 relative">
-    {[
-      { n: '01', t: 'Ingest', d: 'POST /events/ingest', s: 'secret-x-key + idempotency-key' },
-      { n: '02', t: 'Dedupe', d: 'Redis SET NX', s: '409 if duplicate • TTL 300s' },
-      { n: '03', t: 'Save', d: 'MongoDB • pending', s: 'Validate key • 202 Accepted' },
-      { n: '04', t: 'Dispatch', d: 'Poll every 5s', s: 'Forward POST to destination' },
-      { n: '05', t: 'Result', d: 'completed / retry / dead', s: 'attempts < 3 retry • >= 3 dead' },
-    ].map((s, idx) => (
-      <div key={s.n} className="bg-white/5 border border-white/10 rounded-2xl p-4 hover:bg-white/10 hover:border-[#C9A86A]/50 transition-all group">
-        <div className="flex items-center justify-between">
-          <span className="font-mono-classic text-xs text-[#C9A86A]">{s.n}</span>
-          {idx < 4 && <span className="hidden md:block text-[#C9A86A]">→</span>}
-        </div>
-        <div className="font-display text-lg font-bold mt-3">{s.t}</div>
-        <div className="text-xs font-mono-classic text-white mt-1">{s.d}</div>
-        <div className="text-xs text-[#A8A29E] mt-2 leading-relaxed">{s.s}</div>
-      </div>
-    ))}
-  </div>
-</section>
-
-        {/* Code Box */}
-        <section id="quickstart" className="mt-16 w-full max-w-4xl">
-          <div className="text-center mb-6">
-            <p className="text- tracking-[0.28em] font-semibold text-[#A68B3A]">QUICKSTART GUIDE</p>
-            <h3 className="font-display text- sm:text- font-bold tracking-tight mt-2">Integrate in <span className="italic text-[#8A6A1F]">under 2 minutes</span></h3>
-            <p className="text-[13.5px] text-[#78716C] mt-2">Copy, paste, send your first event. Idempotency is already handled.</p>
+        {/* ---------------------------- CAPABILITIES ---------------------------- */}
+        <section id="capabilities" className="max-w-6xl mx-auto px-6 w-full mt-20 scroll-mt-28">
+          <div className="flex items-end justify-between gap-6 mb-10" data-reveal>
+            <div>
+              <p className="hf-mono text-[10px] tracking-[0.35em] text-[#8A6D3B] uppercase mb-3">№ 01 — Capabilities</p>
+              <h2 className="hf-display text-4xl sm:text-5xl tracking-tight">The reliability stack</h2>
+            </div>
+            <p className="hidden md:block max-w-xs text-[13px] leading-relaxed text-[#191817]/60">
+              Three guarantees, enforced on every single request that enters the pipeline.
+            </p>
           </div>
 
-          <div className="p- rounded- bg-gradient-to-b from-[#E8D9A6] via-[#2A2620] to-[#111010] shadow-[0_32px_64px_rgba(0,0,0,0.28)]">
-            <div className="rounded- overflow-hidden bg-[#1e1e1e] font-mono-classic">
-              <div className="bg-[#2d2d2d] px-4 py-3 flex items-center justify-between border-b border-[#3c3c3c]">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                n: '01', chip: '<2MS', dot: 'bg-emerald-500', cmd: 'SET idemp:key EX 300 NX',
+                title: 'Redis Idempotency',
+                icon: <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />,
+                body: <>An atomic caching layer intercepts duplicate requests and rapid retries at microsecond speed. Payload keys are checked before any database write ever happens.</>,
+              },
+              {
+                n: '02', chip: 'SEC_••••••', dot: 'bg-blue-500', cmd: 'HMAC isolation per organization',
+                title: 'Secret Key Verification',
+                icon: <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />,
+                body: <>Every organization carries an isolated, unforgeable secret key (<code className="hf-mono text-[11px] px-1.5 py-0.5 bg-[#191817]/5 rounded">secret-x-key</code>). Requests are authenticated and validated before they ever reach the processing queue.</>,
+              },
+              {
+                n: '03', chip: '5S POLL', dot: 'bg-amber-500', cmd: 'Dead-letter circuit breaker',
+                title: 'Automated Relay & Backoff',
+                icon: <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />,
+                body: <>A background worker polls pending events every five seconds. Failed or timed-out endpoints are retried with exponential backoff until delivery or manual recovery.</>,
+              },
+            ].map((card, i) => (
+              <article
+                key={card.n}
+                data-reveal
+                style={{ transitionDelay: `${i * 100}ms` }}
+                className="hf-card group relative bg-white border border-[#191817]/10 rounded-lg p-7 sm:p-8 flex flex-col justify-between overflow-hidden transition-all duration-500 hover:-translate-y-1.5 hover:border-[#191817]/30 hover:shadow-[0_24px_48px_-20px_rgba(25,24,23,0.25)]"
+              >
+                <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-[#B08D4C] origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
+                <span aria-hidden="true" className="absolute -top-5 right-2 hf-display italic text-[120px] leading-none text-[#191817]/[0.05] group-hover:text-[#8A6D3B]/10 transition-colors duration-500 select-none pointer-events-none">
+                  {card.n}
+                </span>
+
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="w-11 h-11 rounded-[8px] border border-[#191817]/15 bg-[#F5F4EF] text-[#191817] group-hover:bg-[#191817] group-hover:text-[#F5F4EF] flex items-center justify-center transition-colors duration-300">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        {card.icon}
+                      </svg>
+                    </div>
+                    <span className="hf-mono text-[9px] tracking-[0.18em] uppercase border border-[#191817]/10 bg-[#F5F4EF] px-2.5 py-1 rounded-full text-[#191817]/60">
+                      {card.chip}
+                    </span>
+                  </div>
+                  <h3 className="hf-display text-[26px] leading-snug tracking-tight mb-2.5">{card.title}</h3>
+                  <p className="text-[13px] text-[#191817]/70 leading-relaxed">{card.body}</p>
+                </div>
+
+                <div className="relative mt-6 pt-4 border-t border-[#191817]/10 flex items-center gap-2 hf-mono text-[10.5px] text-[#191817]/70">
+                  <span className={`w-1.5 h-1.5 rounded-full ${card.dot}`} />
+                  <span>{card.cmd}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          {/* Stats band */}
+          <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-px bg-[#191817]/10 border-y border-[#191817]/10" data-reveal>
+            {STATS.map((s) => (
+              <div key={s.l} className="bg-[#F5F4EF] p-6 sm:p-8 text-center">
+                <p className="hf-display text-4xl sm:text-5xl">{s.v}</p>
+                <p className="mt-2 hf-mono text-[9px] tracking-[0.3em] uppercase text-[#191817]/50">{s.l}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ----------------------------- QUICKSTART ----------------------------- */}
+        <section id="quickstart" className="max-w-6xl mx-auto px-6 w-full mt-24 scroll-mt-28">
+          <div className="flex items-end justify-between gap-6 mb-8" data-reveal>
+            <div>
+              <p className="hf-mono text-[10px] tracking-[0.35em] text-[#8A6D3B] uppercase mb-3">№ 02 — Quickstart</p>
+              <h2 className="hf-display text-4xl sm:text-5xl tracking-tight">Sixty seconds to first event.</h2>
+            </div>
+            <p className="hidden md:block max-w-xs text-[13px] leading-relaxed text-[#191817]/60">
+              One endpoint, three headers, any language. Copy a snippet and ship.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2 mb-8 hf-mono text-[9px] tracking-[0.2em] uppercase" data-reveal>
+            {['01 · Create org key', '02 · Set headers', '03 · Post payload'].map((step) => (
+              <span key={step} className="border border-[#191817]/15 bg-white px-3.5 py-1.5 rounded-full text-[#191817]/70">
+                <span className="text-[#8A6D3B]">{step.slice(0, 2)}</span>{step.slice(2)}
+              </span>
+            ))}
+          </div>
+
+          <div className="relative max-w-4xl mx-auto" data-reveal>
+            <div aria-hidden="true" className="absolute -inset-8 rounded-[24px] bg-[radial-gradient(60%_60%_at_50%_40%,rgba(176,141,76,0.18),rgba(16,123,90,0.08)_60%,transparent_78%)] blur-2xl" />
+
+            <div role="region" aria-label="Quickstart code examples" className="relative rounded-xl overflow-hidden border border-[#3c3c3c] bg-[#1e1e1e] shadow-[0_40px_80px_-24px_rgba(25,24,23,0.55)]">
+              {/* Title bar */}
+              <div className="bg-[#2d2d2d] px-4 py-2.5 flex items-center justify-between border-b border-[#3c3c3c]">
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-[#ff5f56] inline-block shadow-inner"></span>
-                    <span className="w-3 h-3 rounded-full bg-[#ffbd2e] inline-block shadow-inner"></span>
-                    <span className="w-3 h-3 rounded-full bg-[#27c93f] inline-block shadow-inner"></span>
+                    <span className="w-3 h-3 rounded-full bg-[#ff5f56] shadow-inner" />
+                    <span className="w-3 h-3 rounded-full bg-[#ffbd2e] shadow-inner" />
+                    <span className="w-3 h-3 rounded-full bg-[#27c93f] shadow-inner" />
                   </div>
-                  <span className="text-xs text-[#A8A29E] font-sans font-medium pl-2 select-none hidden sm:inline">HookFlow Ingestion Protocol — Quickstart Guide</span>
+                  <span className="hf-mono text-[10px] text-[#969696] pl-2 select-none hidden sm:inline">
+                    hookflow — ingestion protocol
+                  </span>
                 </div>
-                <span className="text- font-mono-classic px-2.5 py-1 rounded-full bg-[#1f382a] text-[#4ec9b0] border border-[#2b593f]">POST /api/events/ingest</span>
+                <span className="hf-mono text-[9px] tracking-[0.15em] px-2 py-0.5 rounded bg-[#1f382a] text-[#4ec9b0] border border-[#2b593f]">
+                  POST /api/events/ingest
+                </span>
               </div>
 
-              <div className="bg-[#252526] flex items-center justify-between border-b border-[#1e1e1e] px-2 overflow-x-auto">
-                <div className="flex items-center">
-                  {[
-                    { id: 'nodejs', label: 'send-event.js', badge: 'JS', color: 'text-[#68a063]' },
-                    { id: 'python', label: 'send_event.py', badge: 'Py', color: 'text-[#3572A5]' },
-                    { id: 'java', label: 'HookFlowSender.java', badge: '☕', color: 'text-[#b07219]' },
-                  ].map((tab) => (
+              {/* Tabs */}
+              <div className="bg-[#252526] flex items-center justify-between border-b border-[#1e1e1e] pl-1 overflow-x-auto hf-scroll">
+                <div role="tablist" aria-label="Language" className="flex items-center">
+                  {TABS.map((tab) => (
                     <button
                       key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={activeLang === tab.id}
                       onClick={() => setActiveLang(tab.id)}
-                      className={`flex items-center gap-2 px-4 py-2.5 text-xs transition-colors border-r border-[#1e1e1e] cursor-pointer ${activeLang === tab.id ? 'bg-[#1e1e1e] text-white tab-active' : 'text-[#969696] hover:bg-[#2a2d2e] hover:text-[#cccccc]'}`}
+                      className={`flex items-center gap-2 px-4 py-2.5 hf-mono text-[11px] whitespace-nowrap transition-colors border-r border-r-[#1e1e1e] border-t-2 cursor-pointer ${
+                        activeLang === tab.id
+                          ? 'bg-[#1e1e1e] text-white border-t-[#007acc]'
+                          : 'text-[#969696] border-t-transparent hover:bg-[#2a2d2e] hover:text-[#cccccc]'
+                      }`}
                     >
-                      <span className={`${tab.color} font-bold text-sm`}>{tab.badge}</span><span>{tab.label}</span>
+                      <span className="font-bold text-[10px]" style={{ color: tab.color }}>{tab.badge}</span>
+                      <span>{tab.file}</span>
                     </button>
                   ))}
                 </div>
-                <button onClick={handleCopyCode} className="shrink-0 text-xs px-3 py-1.5 bg-[#333333] hover:bg-[#C9A86A] hover:text-black text-[#cccccc] rounded-full border border-[#454545] transition-all flex items-center gap-1.5 cursor-pointer mr-2">
-                  {copied ? (<><span className="text-[#4ec9b0]">✓</span><span>Copied</span></>) : (<><span>📋</span><span>Copy Code</span></>)}
+                <button
+                  type="button"
+                  onClick={handleCopyCode}
+                  className="hf-mono text-[9px] tracking-[0.15em] uppercase px-3 py-1.5 mx-2 shrink-0 bg-[#333333] hover:bg-[#444444] text-[#cccccc] hover:text-white rounded border border-[#454545] transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  {copied ? (<><span className="text-[#4ec9b0]">✓</span>Copied</>) : (<><span>⧉</span>Copy</>)}
                 </button>
               </div>
 
-              <div className="p-5 text-xs sm:text-sm leading-relaxed overflow-x-auto bg-[#1e1e1e] text-[#D4D4D4] min-h-96">
-                {activeLang === 'nodejs' && (
-                  <div className="space-y-1">
-                    <p className="text-[#6a9955]">// Node.js (Fetch API with Idempotency Key)</p>
-                    <p><span className="text-[#c586c0]">const</span> <span className="text-[#9cdcfe]">crypto</span> = <span className="text-[#dcdcaa]">require</span>(<span className="text-[#ce9178]">&apos;crypto&apos;</span>);</p>
-                    <div className="py-1"></div>
-                    <p><span className="text-[#c586c0]">const</span> <span className="text-[#9cdcfe]">secretKey</span> = <span className="text-[#ce9178]">&apos;sec_your_organization_key&apos;</span>;</p>
-                    <p><span className="text-[#c586c0]">const</span> <span className="text-[#9cdcfe]">userId</span> = <span className="text-[#ce9178]">&apos;usr_6af0b7db7b540b7b50&apos;</span>;</p>
-                    <p><span className="text-[#c586c0]">const</span> <span className="text-[#9cdcfe]">idempotencyKey</span> = <span className="text-[#9cdcfe]">crypto</span>.<span className="text-[#dcdcaa]">randomUUID</span>(); <span className="text-[#6a9955]">// Unique UUID per event</span></p>
-                    <div className="py-1"></div>
-                    <p><span className="text-[#c586c0]">const</span> <span className="text-[#9cdcfe]">response</span> = <span className="text-[#c586c0]">await</span> <span className="text-[#dcdcaa]">fetch</span>(<span className="text-[#ce9178] underline decoration-[#4ec9b0]/40">&apos;http://localhost:2000/api/events/ingest&apos;</span>, &#123;</p>
-                    <p className="pl-4"><span className="text-[#9cdcfe]">method</span>: <span className="text-[#ce9178]">&apos;POST&apos;</span>,</p>
-                    <p className="pl-4"><span className="text-[#9cdcfe]">headers</span>: &#123;</p>
-                    <p className="pl-8"><span className="text-[#9cdcfe]">&apos;Content-Type&apos;</span>: <span className="text-[#ce9178]">&apos;application/json&apos;</span>,</p>
-                    <p className="pl-8 bg-[#2a2d2e]/50 py-0.5 rounded"><span className="text-[#9cdcfe]">&apos;secret-x-key&apos;</span>: <span className="text-[#9cdcfe]">secretKey</span>, <span className="text-[#6a9955]">// Authenticated org key</span></p>
-                    <p className="pl-8 bg-[#007acc]/15 py-0.5 rounded border-l-2 border-[#007acc]"><span className="text-[#9cdcfe]">&apos;idempotency-key&apos;</span>: <span className="text-[#9cdcfe]">idempotencyKey</span>, <span className="text-[#4ec9b0]">// Intercepts duplicates with Redis</span></p>
-                    <p className="pl-4">&#125;,</p>
-                    <p className="pl-4"><span className="text-[#9cdcfe]">body</span>: <span className="text-[#4ec9b0]">JSON</span>.<span className="text-[#dcdcaa]">stringify</span>(&#123;</p>
-                    <p className="pl-8"><span className="text-[#9cdcfe]">userId</span>,</p>
-                    <p className="pl-8"><span className="text-[#9cdcfe]">payload</span>: &#123;</p>
-                    <p className="pl-12"><span className="text-[#9cdcfe]">event</span>: <span className="text-[#ce9178]">&apos;payment.completed&apos;</span>,</p>
-                    <p className="pl-12"><span className="text-[#9cdcfe]">amount</span>: <span className="text-[#b5cea8]">4900</span>,</p>
-                    <p className="pl-12"><span className="text-[#9cdcfe]">currency</span>: <span className="text-[#ce9178]">&apos;USD&apos;</span></p>
-                    <p className="pl-8">&#125;,</p>
-                    <p className="pl-4">&#125;),</p>
-                    <p>&#125;);</p>
-                    <div className="py-1"></div>
-                    <p><span className="text-[#c586c0]">const</span> <span className="text-[#9cdcfe]">data</span> = <span className="text-[#c586c0]">await</span> <span className="text-[#9cdcfe]">response</span>.<span className="text-[#dcdcaa]">json</span>();</p>
-                    <p><span className="text-[#9cdcfe]">console</span>.<span className="text-[#dcdcaa]">log</span>(<span className="text-[#ce9178]">&apos;HookFlow Ingested:&apos;</span>, <span className="text-[#9cdcfe]">data</span>);</p>
+              {/* Code — tokenized, numbered, key lines highlighted */}
+              <div className="hf-scroll bg-[#1e1e1e] overflow-auto max-h-[560px] py-4 hf-mono text-[12px] sm:text-[12.5px] leading-[1.8]">
+                {lines.map((line, i) => (
+                  <div key={i} className={`px-3 ${line.cls}`}>
+                    <span className="hf-ln">{i + 1}</span>
+                    <span className="whitespace-pre">
+                      {line.tokens.length === 0 ? '\u00A0' : line.tokens.map((tok, j) => (
+                        <span key={j} style={{ color: tok.color }}>{tok.text}</span>
+                      ))}
+                      {i === lines.length - 1 && <span className="hf-caret text-[#d4d4d4]">▍</span>}
+                    </span>
                   </div>
-                )}
-                {activeLang === 'python' && (
-                  <div className="space-y-1">
-                    <p className="text-[#6a9955]"># Python 3 (Requests with Idempotency Key)</p>
-                    <p><span className="text-[#c586c0]">import</span> <span className="text-[#4ec9b0]">uuid</span></p>
-                    <p><span className="text-[#c586c0]">import</span> <span className="text-[#4ec9b0]">requests</span></p>
-                    <div className="py-1"></div>
-                    <p><span className="text-[#9cdcfe]">secret_key</span> = <span className="text-[#ce9178]">&quot;sec_your_organization_key&quot;</span></p>
-                    <p><span className="text-[#9cdcfe]">user_id</span> = <span className="text-[#ce9178]">&quot;usr_6af0b7db7b540b7b50&quot;</span></p>
-                    <p><span className="text-[#9cdcfe]">idempotency_key</span> = <span className="text-[#dcdcaa]">str</span>(<span className="text-[#4ec9b0]">uuid</span>.<span className="text-[#dcdcaa]">uuid4</span>()) <span className="text-[#6a9955]"># Unique UUID per event</span></p>
-                    <div className="py-1"></div>
-                    <p><span className="text-[#9cdcfe]">url</span> = <span className="text-[#ce9178] underline decoration-[#4ec9b0]/40">&quot;http://localhost:2000/api/events/ingest&quot;</span></p>
-                    <div className="py-1"></div>
-                    <p><span className="text-[#9cdcfe]">headers</span> = &#123;</p>
-                    <p className="pl-4"><span className="text-[#ce9178]">&quot;Content-Type&quot;</span>: <span className="text-[#ce9178]">&quot;application/json&quot;</span>,</p>
-                    <p className="pl-4 bg-[#2a2d2e]/50 py-0.5 rounded"><span className="text-[#ce9178]">&quot;secret-x-key&quot;</span>: <span className="text-[#9cdcfe]">secret_key</span>,</p>
-                    <p className="pl-4 bg-[#007acc]/15 py-0.5 rounded border-l-2 border-[#007acc]"><span className="text-[#ce9178]">&quot;idempotency-key&quot;</span>: <span className="text-[#9cdcfe]">idempotency_key</span>, <span className="text-[#4ec9b0]"># Intercepts duplicates with Redis</span></p>
-                    <p>&#125;</p>
-                    <div className="py-1"></div>
-                    <p><span className="text-[#9cdcfe]">payload</span> = &#123;</p>
-                    <p className="pl-4"><span className="text-[#ce9178]">&quot;userId&quot;</span>: <span className="text-[#9cdcfe]">user_id</span>,</p>
-                    <p className="pl-4"><span className="text-[#ce9178]">&quot;payload&quot;</span>: &#123;</p>
-                    <p className="pl-8"><span className="text-[#ce9178]">&quot;event&quot;</span>: <span className="text-[#ce9178]">&quot;payment.completed&quot;</span>,</p>
-                    <p className="pl-8"><span className="text-[#ce9178]">&quot;amount&quot;</span>: <span className="text-[#b5cea8]">4900</span>,</p>
-                    <p className="pl-8"><span className="text-[#ce9178]">&quot;currency&quot;</span>: <span className="text-[#ce9178]">&quot;USD&quot;</span>,</p>
-                    <p className="pl-4">&#125;,</p>
-                    <p>&#125;</p>
-                    <div className="py-1"></div>
-                    <p><span className="text-[#9cdcfe]">response</span> = <span className="text-[#4ec9b0]">requests</span>.<span className="text-[#dcdcaa]">post</span>(<span className="text-[#9cdcfe]">url</span>, <span className="text-[#9cdcfe]">json</span>=<span className="text-[#9cdcfe]">payload</span>, <span className="text-[#9cdcfe]">headers</span>=<span className="text-[#9cdcfe]">headers</span>)</p>
-                    <p><span className="text-[#dcdcaa]">print</span>(<span className="text-[#ce9178]">&quot;HookFlow Response:&quot;</span>, <span className="text-[#9cdcfe]">response</span>.<span className="text-[#dcdcaa]">json</span>())</p>
-                  </div>
-                )}
-                {activeLang === 'java' && (
-                  <div className="space-y-1">
-                    <p className="text-[#6a9955]">// Java 11+ HttpClient with Idempotency Key</p>
-                    <p><span className="text-[#c586c0]">import</span> <span className="text-[#4ec9b0]">java.net.URI</span>;</p>
-                    <p><span className="text-[#c586c0]">import</span> <span className="text-[#4ec9b0]">java.net.http.HttpClient</span>;</p>
-                    <p><span className="text-[#c586c0]">import</span> <span className="text-[#4ec9b0]">java.net.http.HttpRequest</span>;</p>
-                    <p><span className="text-[#c586c0]">import</span> <span className="text-[#4ec9b0]">java.net.http.HttpResponse</span>;</p>
-                    <p><span className="text-[#c586c0]">import</span> <span className="text-[#4ec9b0]">java.util.UUID</span>;</p>
-                    <div className="py-1"></div>
-                    <p><span className="text-[#569cd6]">public class</span> <span className="text-[#4ec9b0]">HookFlowSender</span> &#123;</p>
-                    <p className="pl-4"><span className="text-[#569cd6]">public static void</span> <span className="text-[#dcdcaa]">main</span>(<span className="text-[#4ec9b0]">String</span>[] <span className="text-[#9cdcfe]">args</span>) <span className="text-[#569cd6]">throws</span> <span className="text-[#4ec9b0]">Exception</span> &#123;</p>
-                    <p className="pl-8"><span className="text-[#4ec9b0]">String</span> <span className="text-[#9cdcfe]">secretKey</span> = <span className="text-[#ce9178]">&quot;sec_your_organization_key&quot;</span>;</p>
-                    <p className="pl-8"><span className="text-[#4ec9b0]">String</span> <span className="text-[#9cdcfe]">idempotencyKey</span> = <span className="text-[#4ec9b0]">UUID</span>.<span className="text-[#dcdcaa]">randomUUID</span>().<span className="text-[#dcdcaa]">toString</span>();</p>
-                    <div className="py-1"></div>
-                    <p className="pl-8"><span className="text-[#4ec9b0]">String</span> <span className="text-[#9cdcfe]">jsonPayload</span> = <span className="text-[#ce9178]">&quot;&quot;&quot;</span></p>
-                    <p className="pl-12 text-[#ce9178]">&#123;</p>
-                    <p className="pl-16 text-[#ce9178]">&quot;userId&quot;: &quot;usr_6af0b7db7b540b7b50&quot;,</p>
-                    <p className="pl-16 text-[#ce9178]">&quot;payload&quot;: &#123; &quot;event&quot;: &quot;payment.completed&quot;, &quot;amount&quot;: 4900 &#125;</p>
-                    <p className="pl-12 text-[#ce9178]">&#125;</p>
-                    <p className="pl-8"><span className="text-[#ce9178]">&quot;&quot;&quot;</span>;</p>
-                    <div className="py-1"></div>
-                    <p className="pl-8"><span className="text-[#4ec9b0]">HttpClient</span> <span className="text-[#9cdcfe]">client</span> = <span className="text-[#4ec9b0]">HttpClient</span>.<span className="text-[#dcdcaa]">newHttpClient</span>();</p>
-                    <p className="pl-8"><span className="text-[#4ec9b0]">HttpRequest</span> <span className="text-[#9cdcfe]">request</span> = <span className="text-[#4ec9b0]">HttpRequest</span>.<span className="text-[#dcdcaa]">newBuilder</span>()</p>
-                    <p className="pl-12">.<span className="text-[#dcdcaa]">uri</span>(<span className="text-[#4ec9b0]">URI</span>.<span className="text-[#dcdcaa]">create</span>(<span className="text-[#ce9178]">&quot;http://localhost:2000/api/events/ingest&quot;</span>))</p>
-                    <p className="pl-12">.<span className="text-[#dcdcaa]">header</span>(<span className="text-[#ce9178]">&quot;Content-Type&quot;</span>, <span className="text-[#ce9178]">&quot;application/json&quot;</span>)</p>
-                    <p className="pl-12">.<span className="text-[#dcdcaa]">header</span>(<span className="text-[#ce9178]">&quot;secret-x-key&quot;</span>, <span className="text-[#9cdcfe]">secretKey</span>)</p>
-                    <p className="pl-12 bg-[#007acc]/15 py-0.5 rounded border-l-2 border-[#007acc]">.<span className="text-[#dcdcaa]">header</span>(<span className="text-[#ce9178]">&quot;idempotency-key&quot;</span>, <span className="text-[#9cdcfe]">idempotencyKey</span>) <span className="text-[#4ec9b0]">// Redis idempotency</span></p>
-                    <p className="pl-12">.<span className="text-[#dcdcaa]">POST</span>(<span className="text-[#4ec9b0]">HttpRequest</span>.<span className="text-[#4ec9b0]">BodyPublishers</span>.<span className="text-[#dcdcaa]">ofString</span>(<span className="text-[#9cdcfe]">jsonPayload</span>))</p>
-                    <p className="pl-12">.<span className="text-[#dcdcaa]">build</span>();</p>
-                    <div className="py-1"></div>
-                    <p className="pl-8"><span className="text-[#4ec9b0]">HttpResponse</span>&lt;<span className="text-[#4ec9b0]">String</span>&gt; <span className="text-[#9cdcfe]">response</span> = <span className="text-[#9cdcfe]">client</span>.<span className="text-[#dcdcaa]">send</span>(<span className="text-[#9cdcfe]">request</span>, <span className="text-[#4ec9b0]">HttpResponse</span>.<span className="text-[#4ec9b0]">BodyHandlers</span>.<span className="text-[#dcdcaa]">ofString</span>());</p>
-                    <p className="pl-8"><span className="text-[#4ec9b0]">System</span>.<span className="text-[#9cdcfe]">out</span>.<span className="text-[#dcdcaa]">println</span>(<span className="text-[#ce9178]">&quot;HookFlow Response: &quot;</span> + <span className="text-[#9cdcfe]">response</span>.<span className="text-[#dcdcaa]">body</span>());</p>
-                    <p className="pl-4">&#125;</p>
-                    <p>&#125;</p>
-                  </div>
-                )}
+                ))}
               </div>
 
-              <div className="bg-[#007acc] text-white text- px-4 py-2 flex items-center justify-between font-sans select-none">
-                <div className="flex items-center gap-3"><span>⚡ Ready for Ingestion</span><span className="hidden sm:inline">UTF-8</span><span className="hidden sm:inline">Redis 300s TTL</span></div>
-                <div className="flex items-center gap-2"><span>{activeLang === 'nodejs' ? 'JavaScript' : activeLang === 'python' ? 'Python' : 'Java'}</span><span>Port: 2000</span></div>
+              {/* Status bar */}
+              <div className="bg-[#007acc] text-white/95 hf-mono text-[9px] tracking-[0.1em] px-3 py-1.5 flex items-center justify-between select-none uppercase">
+                <div className="flex items-center gap-3">
+                  <span>⚡ Ready</span>
+                  <span className="hidden sm:inline">UTF-8</span>
+                  <span className="hidden sm:inline">Redis TTL 300s</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span>{TABS.find((t) => t.id === activeLang)?.label}</span>
+                  <span>Ln {lines.length}</span>
+                  <span className="hidden sm:inline">Port 2000</span>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Bottom CTA */}
-        <section className="mt-16 w-full bg-[#111010] rounded- p-8 sm:p-12 text-center relative overflow-hidden border border-[#2A2620]">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w- h- bg-gradient-to-r from-transparent via-[#C9A86A] to-transparent" />
-          <div className="absolute -bottom-24 left-1/2 -translate-x-1/2 w- h- bg-[#C9A86A]/15 blur- rounded-full" />
-          <div className="relative">
-            <p className="text- tracking-[0.32em] font-semibold text-[#C9A86A]">READY WHEN YOU ARE</p>
-            <h3 className="font-display text- sm:text- font-bold text-white leading-[1.05] mt-3">Build on infrastructure<br /><span className="italic font-medium text-[#C9A86A]">that never drops.</span></h3>
-            <p className="text-[#B8B0A0] text- mt-4 max-w-md mx-auto leading-relaxed">Create your organization, get your secret key, and start ingesting events in the next two minutes.</p>
-            <div className="flex justify-center mt-7">
-              <Link href="/register" className="btn-shine inline-flex items-center gap-2 px-8 py-4 bg-[#C9A86A] hover:bg-[#E2C87F] text-black font-bold text-sm rounded-full transition-all hover:-translate-y-0.5 shadow-[0_16px_32px_rgba(201,168,106,0.35)]">
-                Get Your Secret Key <span>→</span>
+        {/* ------------------------------ FINAL CTA ------------------------------ */}
+        <section className="mt-24 relative bg-[#141311] text-[#F5F4EF] overflow-hidden">
+          <div aria-hidden="true" className="hf-grain absolute inset-0 opacity-[0.07] pointer-events-none" />
+          <div aria-hidden="true" className="absolute -top-40 left-1/2 -translate-x-1/2 w-[800px] h-[400px] rounded-full bg-[#B08D4C]/15 blur-[110px] pointer-events-none" />
+          <div className="relative max-w-6xl mx-auto px-6 py-20 sm:py-24 text-center" data-reveal>
+            <p className="hf-mono text-[10px] tracking-[0.4em] uppercase text-[#B08D4C] mb-6">Begin — it takes minutes</p>
+            <h2 className="hf-display text-5xl sm:text-6xl md:text-7xl leading-[1.02] tracking-tight">
+              Every event, <span className="italic text-[#B08D4C]">accounted for.</span>
+            </h2>
+            <p className="mt-6 text-[15px] text-[#F5F4EF]/60 max-w-md mx-auto leading-relaxed">
+              Create an organization, copy your secret key, and post your first event in under a minute.
+            </p>
+            <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link href={ctaHref} className="hf-btn group inline-flex items-center gap-3 px-8 py-4 bg-[#F5F4EF] hover:bg-white text-[#191817] hf-mono text-[11px] tracking-[0.2em] uppercase rounded-[4px] transition-all hover:-translate-y-0.5">
+                {ctaLabel}
+                <Arrow className="transition-transform group-hover:translate-x-1" />
               </Link>
+              <a href="#quickstart" className="inline-flex items-center px-8 py-4 border border-[#F5F4EF]/25 hover:border-[#F5F4EF]/60 hf-mono text-[11px] tracking-[0.2em] uppercase rounded-[4px] transition-colors">
+                Read the Quickstart
+              </a>
             </div>
+            <p className="mt-8 hf-mono text-[9px] tracking-[0.3em] uppercase text-[#F5F4EF]/40">
+              Free to start ✦ First event in 60 seconds
+            </p>
           </div>
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-[#E8DFC8] bg-[#FAF7F0]">
-        <div className="max-w-6xl mx-auto px-6 py-10 flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <span className="w-8 h-8 bg-[#111010] text-[#F5EFE2] flex items-center justify-center font-display font-bold rounded-">H</span>
-            <div className="leading-none">
-              <span className="font-display font-bold text-black text-">HookFlow</span>
-              <span className="block text- text-[#78716C] mt-1">Webhook Reliability Infrastructure</span>
+      {/* -------------------------------- FOOTER -------------------------------- */}
+      <footer className="border-t border-[#191817]/10 bg-[#F5F4EF]">
+        <div className="max-w-6xl mx-auto px-6 pt-14 pb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 pb-12">
+            <div>
+              <div className="flex items-center gap-2.5 mb-4">
+                <span className="w-6 h-6 rounded-[5px] bg-[#191817] text-[#F5F4EF] flex items-center justify-center hf-display text-sm">H</span>
+                <span className="hf-display text-lg">HookFlow</span>
+              </div>
+              <p className="text-[12px] leading-relaxed text-[#191817]/60 max-w-[220px]">
+                Webhook reliability infrastructure. Ingest, dedupe, relay — with certainty.
+              </p>
+            </div>
+            <div>
+              <p className="hf-mono text-[9px] tracking-[0.3em] uppercase text-[#8A6D3B] mb-4">Product</p>
+              <ul className="space-y-2.5 text-[12px] text-[#191817]/70">
+                <li><a href="#capabilities" className="hover:text-[#191817] transition-colors">Capabilities</a></li>
+                <li><a href="#wire" className="hover:text-[#191817] transition-colors">The Wire</a></li>
+                <li><a href="#quickstart" className="hover:text-[#191817] transition-colors">Quickstart</a></li>
+                <li>
+                  <Link href={mounted && isLoggedIn ? '/dashboard' : '/login'} className="hover:text-[#191817] transition-colors">
+                    {mounted && isLoggedIn ? 'Dashboard' : 'Sign In'}
+                  </Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <p className="hf-mono text-[9px] tracking-[0.3em] uppercase text-[#8A6D3B] mb-4">Protocol</p>
+              <ul className="space-y-2.5 hf-mono text-[10.5px] text-[#191817]/70">
+                <li><span className="text-[#8A6D3B]">POST</span> /api/events/ingest</li>
+                <li>secret-x-key <span className="text-[#191817]/40">— org auth</span></li>
+                <li>idempotency-key <span className="text-[#191817]/40">— dedupe</span></li>
+                <li className="flex items-center gap-2 pt-1 text-emerald-700">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> All systems operational
+                </li>
+              </ul>
             </div>
           </div>
-          <div className="flex items-center gap-6 text- font-medium text-[#78716C]">
-            <a href="#features" className="hover:text-black">Features</a>
-            <a href="#pipeline" className="hover:text-black">Pipeline</a>
-            <a href="#quickstart" className="hover:text-black">Docs</a>
+
+          <p aria-hidden="true" className="hf-display italic text-center leading-[0.8] text-[clamp(64px,14vw,180px)] text-[#191817]/[0.06] select-none pointer-events-none">
+            HookFlow
+          </p>
+
+          <div className="mt-6 pt-6 border-t border-[#191817]/10 flex flex-col sm:flex-row items-center justify-between gap-3 hf-mono text-[9px] tracking-[0.2em] uppercase text-[#191817]/50">
+            <p>© {new Date().getFullYear()} HookFlow — Engineered for certainty</p>
+            <a href="#top" className="hover:text-[#191817] transition-colors">↑ Back to top</a>
           </div>
-          <p className="text- text-[#A8A29E]">© {new Date().getFullYear()} HookFlow. Built for high reliability.</p>
-        </div>
-        <div className="overflow-hidden select-none pointer-events-none">
-          <div className="max-w-6xl mx-auto px-6 font-display font-black text- sm:text- leading-[0.8] tracking-[-0.05em] text-[#111010]/[0.06] text-center whitespace-nowrap -mb-4">HOOKFLOW</div>
         </div>
       </footer>
     </div>
   );
 }
-
